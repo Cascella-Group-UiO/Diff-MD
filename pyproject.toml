@@ -1,55 +1,29 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
-editable_mode = true
 
 [project]
 name = "diff_hymd"
 version = "1.0.0"
-authors = [
-  { name="Manuel Carrer", email="manuel.carrer@kjemi.uio.no" },
-]
+authors = [{ name = "Manuel Carrer", email = "manuel.carrer@kjemi.uio.no" }]
 description = "Hybrid particle-field differentiable MD"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 classifiers = [
-    "Programming Language :: Python :: 3.11",
-    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)"
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
 ]
-dependencies = [
-  "flax",
-  "h5py",
-  "jax",
-  "jaxlib",
-  "mpi4jax",
-  "mpi4py",
-  "numpy",
-  "optax",
-  "orbax-checkpoint",
-  "tomli",
-  "tomlkit",
-]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
 
 [project.optional-dependencies]
 dev = ["pytest"]
-v1 = [
-  "flax == 0.7.4",
-  "h5py == 3.10.0",
-  "jax == 0.4.18",
-  "jaxlib == 0.4.18",
-  "mpi4jax == 0.3.15.post2",
-  "mpi4py == 3.1.5",
-  "numpy == 1.26.0",
-  "optax == 0.1.7",
-  "orbax-checkpoint == 0.4.1",
-  "tomli == 2.0.1",
-  "tomlkit == 0.12.1",
-]
 
 [project.scripts]
 diff_hymd = "diff_hymd.main:main"
 
 [tool.pytest.ini_options]
-addopts = [
-    "--import-mode=importlib",
-]
+addopts = ["--import-mode=importlib"]

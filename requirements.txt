@@ -1,0 +1,11 @@
+flax
+h5py
+jax
+jaxlib
+mpi4jax
+mpi4py
+numpy
+optax
+orbax-checkpoint
+tomli
+tomlkit
