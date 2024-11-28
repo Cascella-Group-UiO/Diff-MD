@@ -21,7 +21,7 @@ python -m venv --upgrade-deps <dir>
 Then you can simply install the package with
 ```terminal
 source <dir>/bin/activate
-pip install .[v1]
+pip install .
 ```
 ## Example usage
 To run a simple MD simulation you can use
