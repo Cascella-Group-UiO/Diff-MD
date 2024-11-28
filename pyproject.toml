@@ -3,10 +3,10 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "diff_hymd"
-version = "1.0.0"
+name = "diff_md"
+version = "0.0.1"
 authors = [{ name = "Manuel Carrer", email = "manuel.carrer@kjemi.uio.no" }]
-description = "Hybrid particle-field differentiable MD"
+description = "Differentiable MD"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -23,7 +23,7 @@ dependencies = { file = ["requirements.txt"] }
 dev = ["pytest"]
 
 [project.scripts]
-diff_hymd = "diff_hymd.main:main"
+diff_md = "diff_md.main:main"
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]

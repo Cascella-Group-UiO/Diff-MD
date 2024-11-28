@@ -31,8 +31,8 @@ class Logger:
     format = " %(levelname)-8s [%(filename)s:%(lineno)d] <%(funcName)s> %(message)s"  # noqa: E501
     date_format = "%(asctime)s"
     formatter = logging.Formatter(fmt=date_format + format)
-    rank0 = logging.getLogger("HyMD.rank_0")
-    all_ranks = logging.getLogger("HyMD.all_ranks")
+    rank0 = logging.getLogger("DiffMD.rank_0")
+    all_ranks = logging.getLogger("DiffMD.all_ranks")
 
     @classmethod
     def setup(cls, default_level=logging.INFO, log_file=None, verbose=False):

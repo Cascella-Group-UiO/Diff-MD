@@ -74,7 +74,7 @@ def get_arguments(ap, required):
 
 
 def mdrun_runtime():
-    ap = ArgumentParser(prog="diff_hymd mdrun")
+    ap = ArgumentParser(prog="diff_md mdrun")
 
     ap.add_argument(
         "--disable-field",
@@ -139,7 +139,7 @@ def mdrun_runtime():
 
 
 def optimize_runtime():
-    ap = ArgumentParser(prog="diff_hymd optimize")
+    ap = ArgumentParser(prog="diff_md optimize")
     ap.add_argument(
         "--debug",
         help="Run the program in debug mode, performing a single test simulation",

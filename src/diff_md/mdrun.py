@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-import jax.config as jax_config
+from jax import config as jax_config
 import jax.numpy as jnp
 import numpy as onp
 from jax import random

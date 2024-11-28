@@ -426,7 +426,7 @@ def get_config(
     else:
         config_dict["coulombtype"] = 0
 
-    # HyMD options not used in Diff-HyMD
+    # HyMD options not used in Diff-MD
     for opt in ("integrator", "hamiltonian"):
         if opt in config_dict:
             del config_dict[opt]

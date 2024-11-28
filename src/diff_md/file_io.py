@@ -99,7 +99,7 @@ def store_static(
     author_group = h5md_group.create_group("author")
     author_group.attrs["name"] = np.string_(getpass.getuser())
     creator_group = h5md_group.create_group("creator")
-    creator_group.attrs["name"] = np.string_("Diff-HyMD")
+    creator_group.attrs["name"] = np.string_("Diff-MD")
 
     creator_group.attrs["version"] = np.string_("0.0")
 

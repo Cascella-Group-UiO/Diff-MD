@@ -12,8 +12,8 @@ class Parser:
     def __init__(self, comm):
         self.comm = comm
         parser = argparse.ArgumentParser(
-            # description="Diff-HyMD",
-            usage="""diff_hymd <command> [<args>]
+            # description="Diff-MD",
+            usage="""diff_md <command> [<args>]
 
 The available commands are:
    mdrun      Run a HhPF-MD simulation
