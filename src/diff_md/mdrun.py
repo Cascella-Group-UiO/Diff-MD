@@ -5,6 +5,7 @@ from jax import config as jax_config
 import jax.numpy as jnp
 import numpy as onp
 from jax import random
+from vesin import NeighborList
 
 from .barostat import berendsen, c_rescale
 from .file_io import OutDataset, store_data, store_static
@@ -89,7 +90,8 @@ def main(args):
     rv = 10.0 
     rc = 10.0
     ns_nlist = 5 #Number of steps between update of list
-    neighbors = verlet_list(positions, config.box_size, rv, config.n_particles)
+    nlist_calc = NeighborList(cutoff=rc, full_list=False)
+    neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
 
     # Probably not needed. Will try to just use the config.sigma, config.epsilon
     # type_mask = {}
@@ -165,9 +167,8 @@ def main(args):
         )
     else:
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(
-            positions, system.types, config.sgm_table, config.epsl_table, neighbors, rc
+            positions, system.types, config.sgm_table, config.epsl_table, neigh_i, neigh_j, config.box_size, rc
         )
-    print("AAA")
 
     kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
     out_dataset = OutDataset(

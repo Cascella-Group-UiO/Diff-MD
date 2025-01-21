@@ -12,8 +12,16 @@ from .neighbor_list import apply_cutoff
 @jit
 def LJ_potential(r, e, s):
     rnorm = jnp.linalg.norm(r)
-    return 4*e*( (s/rnorm)**12 - (s/rnorm)**6 )
+    r6 = (s/rnorm)**6
+    return 4.0 * e * r6 * (r6 - 1.0)
 
+@jit
+def LJ_forces(r, e, s):
+    rnorm = jnp.linalg.norm(r)
+    r2i = 1.0/(rnorm*rnorm)
+    r6 = (s/rnorm)**6
+    ff = 48.0*e*r6 * ( r6 - 0.5 ) * r2i
+    return r*ff
 
 # @jit
 # def get_LJ_energy_and_forces(
@@ -54,41 +62,36 @@ def get_LJ_energy_and_forces(
     types: Array,
     sigma: Array, 
     epsilon: Array, 
-    neighbors: dict[int, list], 
+    neigh_i: Array, 
+    neigh_j: Array,
+    box: Array,
     rc: float
 ) -> Tuple[float, Array]:
 
-    LJ_grad = value_and_grad(LJ_potential)
-
     num_particles = len(positions)
     forces = jnp.zeros((num_particles, 3))  # Initialize forces array
-    energies = jnp.zeros((num_particles, 3))  # Initialize energies array
+    energy = 0.0  # Initialize energy
 
-    for i, j_list in neighbors.items():
-        print(i)
-        force = jnp.zeros(3)
-        energy = 0
-
+    for i, j in zip(neigh_i, neigh_j):
         i_r = positions[i]
-        j_r = jnp.array([positions[j] for j in j_list])
-        r_vec = j_r - i_r  # Code breaks if the neighbors list is empty
-        r_norm = jnp.array([jnp.linalg.norm(r) for r in r_vec])
+        j_r = positions[j]
+        r_vec = i_r - j_r
+        r_vec = r_vec - box * jnp.round(r_vec / box)
+        r_norm = jnp.linalg.norm(r_vec)
 
-        sigma_values = jnp.array([sigma[types[i], types[j]] for j in j_list])
-        epsilon_values = jnp.array([epsilon[types[i], types[j]] for j in j_list])
-        
-        r_values, sigma_values, epsilon_values = apply_cutoff(r_vec, r_norm, sigma_values, epsilon_values, rc)
-        
-        # Iterate through individual particle pairs to calculate energy and force
-        for r, sigma_val, epsilon_val in zip(r_values, sigma_values, epsilon_values):
-            value, grad = LJ_grad(r, epsilon_val, sigma_val)  # Calculate for individual particle pair
-            force += grad
-            energy += value
+        sigma_ij = sigma[types[i], types[j]]
+        epsilon_ij = epsilon[types[i], types[j]]
 
-        forces = forces.at[i].add(force)
-        energies = energies.at[i].add(energy)
-    print(f'{jnp.sum(energies)}\n{forces}')
-    return jnp.sum(energies), forces
+        # compute the energy and force for each particle pair i, j
+        en_pair = LJ_potential(r_vec, epsilon_ij, sigma_ij)
+        ecut = LJ_potential(rc, epsilon_ij, sigma_ij) # TODO: make a table for this
+        f_pair = LJ_forces(r_vec, epsilon_ij, sigma_ij)
+
+        forces = forces.at[i].add(f_pair)
+        forces = forces.at[j].add(-f_pair)
+        energy = en_pair - ecut
+    print(f'{energy}\n{forces}')
+    return energy, forces
 
 
 @jit

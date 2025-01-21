@@ -9,3 +9,4 @@ optax
 orbax-checkpoint
 tomli
 tomlkit
+vesin
