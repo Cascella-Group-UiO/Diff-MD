@@ -19,18 +19,17 @@ from .force import (
 from .input_parser import System
 from .integrator import integrate_position, integrate_velocity
 from .logger import Logger, format_timedelta
+from .neighbor_list import verlet_list
 from .pm_functions import (
     get_dipole_forces,
     get_elec_energy_potential_and_forces,
-    get_field_energy_and_forces,
-    get_field_energy_and_forces_npt,
+    get_LJ_energy_and_forces_npt, get_LJ_energy_and_forces, LJ_potential
 )
 from .thermostat import (
     cancel_com_momentum,
     csvr_thermostat,
     generate_initial_velocities,
 )
-
 
 # pyright: reportUnboundVariable=none
 def main(args):
@@ -60,6 +59,7 @@ def main(args):
 
     # Initialize forces
     field_forces = jnp.zeros_like(positions)
+    LJ_forces = jnp.zeros_like(positions)
     bond_forces = jnp.zeros_like(positions)
     angle_forces = jnp.zeros_like(positions)
     dihedral_forces = jnp.zeros_like(positions)
@@ -72,6 +72,7 @@ def main(args):
     angle_energy = 0.0
     dihedral_energy = 0.0
     field_energy = 0.0
+    LJ_energy = 0.0
     elec_energy = 0.0
 
     # Initialize pressure
@@ -84,11 +85,18 @@ def main(args):
     chi = jnp.zeros((config.n_types, config.n_types))
     elec_potential = jnp.zeros(config.mesh_size)
 
-    type_mask = {}
-    for i, ti in enumerate(config.unique_types):
-        type_mask[i] = jnp.where(system.types == ti, 1.0, 0.0).reshape(-1, 1)
-        chi = chi.at[i].set(config.chi[config.type_to_chi[ti]])
-    chi = chi.reshape(config.n_types, config.n_types, 1, 1, 1)
+    # Make neighbor list
+    rv = 10.0 
+    rc = 10.0
+    ns_nlist = 5 #Number of steps between update of list
+    neighbors = verlet_list(positions, config.box_size, rv, config.n_particles)
+
+    # Probably not needed. Will try to just use the config.sigma, config.epsilon
+    # type_mask = {}
+    # for i, ti in enumerate(config.unique_types):
+    #     type_mask[i] = jnp.where(system.types == ti, 1.0, 0.0).reshape(-1, 1)
+    #     chi = chi.at[i].set(config.chi[config.type_to_chi[ti]])
+    # chi = chi.reshape(config.n_types, config.n_types, 1, 1, 1)
 
     if config.coulombtype and system.charges is not None:
         elec_fog = jnp.zeros((3, *config.mesh_size))
@@ -138,16 +146,28 @@ def main(args):
             reconstr_forces, dip_forces, transfer_matrices, *topol.bonds_d
         )
 
+    # Field stuff 
+    # if config.pressure or config.barostat:
+    #     phi_fourier = jnp.zeros((config.n_types, *config.fft_shape), dtype=cdtype)
+    #     field_energy, field_forces, field_pressure = get_field_energy_and_forces_npt(
+    #         # fmt: off
+    #         positions, phi, phi_fourier, field_forces, field_fog, chi, type_mask, elec_potential, config
+    #     )
+    # else:
+    #     field_energy, field_forces = get_field_energy_and_forces(
+    #         positions, phi, field_forces, field_fog, chi, type_mask, config
+    #     )
+
     if config.pressure or config.barostat:
-        phi_fourier = jnp.zeros((config.n_types, *config.fft_shape), dtype=cdtype)
-        field_energy, field_forces, field_pressure = get_field_energy_and_forces_npt(
-            # fmt: off
-            positions, phi, phi_fourier, field_forces, field_fog, chi, type_mask, elec_potential, config
+        #Not writen yet
+        LJ_energy, LJ_forces, LJ_pressure = get_LJ_energy_and_forces_npt(
+            positions, system.types, config.sgm_table, config.epsl_table
         )
     else:
-        field_energy, field_forces = get_field_energy_and_forces(
-            positions, phi, field_forces, field_fog, chi, type_mask, config
+        LJ_energy, LJ_forces = get_LJ_energy_and_forces(
+            positions, system.types, config.sgm_table, config.epsl_table, neighbors, rc
         )
+    print("AAA")
 
     kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
     out_dataset = OutDataset(
@@ -180,7 +200,7 @@ def main(args):
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             pressure = (
                 kinetic_pressure
-                + (field_pressure - field_energy - elec_energy)
+                + (field_pressure - LJ_energy - elec_energy)
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
@@ -202,7 +222,7 @@ def main(args):
             bond_energy,
             angle_energy,
             dihedral_energy,
-            field_energy,
+            LJ_energy,
             elec_energy,
             config,
             velocity_out=True,
@@ -227,7 +247,7 @@ def main(args):
             if jnp.mod(step, config.n_print) == 0:
                 #     log_step = True
                 # if log_step:
-                step_t = current_step_time - last_step_time
+                step_t = current_step_time - last_step_time #Not being used
                 tot_t = current_step_time - loop_start_time
                 # CHECK: should this be (step + 1) or just step?
                 ns_sim = (step + 1) * config.outer_ts / 1000
@@ -251,9 +271,12 @@ def main(args):
                 Logger.rank0.log(logging.INFO, info_str)
 
         # Initial rRESPA velocity step
+        if step%ns_nlist == 0: 
+            verlet_list(positions, config.box_size, rv, config.n_particles)
+
         velocities = integrate_velocity(
             velocities,
-            (field_forces + elec_forces + reconstr_forces) / config.mass,
+            (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
 
@@ -353,9 +376,11 @@ def main(args):
                 )
 
         # Recompute after barostat
-        field_energy, field_forces = get_field_energy_and_forces(
-            positions, phi, field_forces, field_fog, chi, type_mask, config
+        # Why do this?
+        LJ_energy, LJ_forces = get_LJ_energy_and_forces(
+            positions, system.types, config.sgm_table, config.epsl_table, neighbors, rc
         )
+
         if config.coulombtype and system.charges is not None:
             (
                 elec_energy,
@@ -425,7 +450,7 @@ def main(args):
                     bond_energy,
                     angle_energy,
                     dihedral_energy,
-                    field_energy,
+                    LJ_energy,
                     elec_energy,
                     config,
                     velocity_out=True,
@@ -452,8 +477,8 @@ def main(args):
     )
 
     if config.n_print > 0 and jnp.mod(config.n_steps - 1, config.n_print) != 0:
-        field_energy, field_forces = get_field_energy_and_forces(
-            positions, phi, field_forces, field_fog, chi, type_mask, config
+        LJ_energy, LJ_forces = get_LJ_energy_and_forces(
+            positions, system.types, config.sgm_table, config.epsl_table, neighbors, rc
         )
         if config.coulombtype and system.charges is not None:
             (
@@ -487,14 +512,14 @@ def main(args):
             system.indices,
             onp.asarray(positions),
             onp.asarray(velocities),
-            onp.asarray(field_forces),
+            onp.asarray(LJ_forces),
             temperature,
             pressure,
             kinetic_energy,
             bond_energy,
             angle_energy,
             dihedral_energy,
-            field_energy,
+            LJ_energy,
             elec_energy,
             config,
             velocity_out=True,

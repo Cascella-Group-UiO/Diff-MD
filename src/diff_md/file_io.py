@@ -97,11 +97,11 @@ def store_static(
 
     h5md_group.attrs["version"] = np.array([1, 1], dtype=int)
     author_group = h5md_group.create_group("author")
-    author_group.attrs["name"] = np.string_(getpass.getuser())
+    author_group.attrs["name"] = np.bytes_(getpass.getuser())
     creator_group = h5md_group.create_group("creator")
-    creator_group.attrs["name"] = np.string_("Diff-MD")
+    creator_group.attrs["name"] = np.bytes_("Diff-MD")
 
-    creator_group.attrs["version"] = np.string_("0.0")
+    creator_group.attrs["version"] = np.bytes_("0.0")
 
     h5md.particles_group = h5md.file.create_group("/particles")
     h5md.all_particles = h5md.particles_group.create_group("all")
@@ -117,7 +117,7 @@ def store_static(
     box = h5md.all_particles.create_group("box")
     box.attrs["dimension"] = 3
     box.attrs["boundary"] = np.array(
-        [np.string_(s) for s in 3 * ["periodic"]], dtype="S8"
+        [np.bytes_(s) for s in 3 * ["periodic"]], dtype="S8"
     )
 
     n_frames = config.n_steps // config.n_print
@@ -305,7 +305,7 @@ def store_static(
     for i in indices:
         species[i] = types[i]
 
-    h5md.parameters.attrs["config.toml"] = np.string_(str(config))
+    h5md.parameters.attrs["config.toml"] = np.bytes_(str(config))
     vmd_group = h5md.parameters.create_group("vmd_structure")
     index_of_species = vmd_group.create_dataset(
         "indexOfSpecies", (config.n_types,), "i"
@@ -326,7 +326,7 @@ def store_static(
         prev = 0
         for resname, n in topol_mols:
             resname_dataset[(unique_mols >= prev) & (unique_mols < prev + n)] = (
-                np.string_(resname)
+                np.bytes_(resname)
             )
             prev += n
 
@@ -334,7 +334,7 @@ def store_static(
     unique_names = names[np.sort(name_idx)]
 
     for i, n in enumerate(unique_names):
-        name_dataset[i] = np.string_(n.decode("utf-8")[:16])
+        name_dataset[i] = np.bytes_(n.decode("utf-8")[:16])
 
     total_bonds = len(bonds_2_atom1)
     bonds_from = vmd_group.create_dataset("bond_from", (total_bonds,), "i")

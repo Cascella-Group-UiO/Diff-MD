@@ -22,6 +22,9 @@ class Config:
     n_particles: int = struct.field(pytree_node=False)
     n_types: int = struct.field(pytree_node=False)
     dielectric_const: float = struct.field(pytree_node=False)
+    # By defining "struct.field(pytree_node=False)" The field will not
+    # participate in JAX's transformations. This is used for quantities that are not differentiable
+    # - More efficience.
 
     # Derived quantities
     particle_per_type: dict = struct.field(pytree_node=False)
@@ -38,13 +41,21 @@ class Config:
     self_energy: float = struct.field(pytree_node=False)
 
     # Field options
-    chi: Array = struct.field(pytree_node=False)
-    chi_dict: dict = struct.field(pytree_node=False)
-    type_to_chi: Array = struct.field(pytree_node=False)
+    # chi: Array = struct.field(pytree_node=False)
+    # chi_dict: dict = struct.field(pytree_node=False)
+    # type_to_chi: Array = struct.field(pytree_node=False)
     mesh_size: Array = struct.field(pytree_node=False)
     rho0: float = struct.field(pytree_node=False)
     kappa: float = struct.field(pytree_node=False)
-    sigma: float = struct.field(pytree_node=False)
+    sigma: float = struct.field(pytree_node=False) 
+
+    # LJ options
+    LJ_param: Array = struct.field(pytree_node=False)
+    sgm_dict: dict = struct.field(pytree_node=False)
+    epsl_dict: dict = struct.field(pytree_node=False)
+    type_to_LJ: Array = struct.field(pytree_node=False)    
+    sgm_table: Array = struct.field(pytree_node=False)
+    epsl_table: Array = struct.field(pytree_node=False)
 
     thermostat_coupling_groups: tuple[int, ArrayLike] = struct.field(pytree_node=False)
 
@@ -190,7 +201,9 @@ class Config:
             n_mesh_cells=n_mesh_cells,
             **args,
         )
-
+    
+    # Doesn't seem important right now
+    #
     def __str__(self) -> str:
         ret_str = f'\n\n\tSimulation parameters: \n\t{50 * "-"}\n'
         for k, v in self.__dict__.items():
@@ -198,18 +211,23 @@ class Config:
                 "empty_mesh",
                 "k_vector",
                 "k_meshgrid",
+                "LJ_param",
+                "sgm_dict",
+                "epsl_dict",
+                "type_to_LJ",
+                "sgm_table",
+                "epsl_table",
                 "window",
                 "elec_const",
-                "chi",
-                "chi_dict",
                 "thermostat_coupling_groups",
                 "type_to_charge_map",
-                "type_to_chi",
             ):
                 ret_str += f"\t{k}: {v}\n"
-        ret_str += "\tchi:\n"
-        for k, v in self.chi_dict.items():
-            ret_str += f"\t\t{k[0]}\t{k[1]}\t{v:>8}\n"
+        ret_str += "\tLJ parameters:\n"
+        # for k, v in self.sgm_dict.items(): 
+        #     ret_str += f"\t\t{k[0]}\t{k[1]}\t{v:>8}\n"
+        for k, v in zip(self.sgm_dict.items(), self.epsl_dict.items()):
+            ret_str += f"\t\t{k[0][0]}\t{k[0][1]}\t{k[1]}\t{v[1]}\n"
         return ret_str
 
 
@@ -219,22 +237,7 @@ def read_toml(file_path: str) -> dict[str, Any]:
     return toml_content
 
 
-def get_type_to_chi_no_self(n: int) -> Array:
-    """
-    This function builds an array that maps types to chi values, excluding the self interaction.
-    n is the number of unique types in the system.
-    """
-    arr = np.arange(int(n * (n - 1) / 2))
-    idx_triu = np.triu_indices(n - 1, k=0, m=n - 1)
-    square_matrix = np.zeros((n - 1, n - 1), dtype=int)
-    square_matrix[idx_triu] = arr
-    matrix = np.zeros((n, n - 1), dtype=int)
-    matrix[: n - 1, :] += square_matrix
-    matrix[1:, :] += square_matrix.T
-    return jnp.array(matrix)
-
-
-def get_type_to_chi(n: int) -> np.ndarray:
+def get_type_to_LJ(n: int) -> np.ndarray:
     """
     This function builds a matrix that maps types to χ values, including the self interaction.
     n is the number of unique types in the system.
@@ -285,7 +288,7 @@ def get_config(
     particle_per_type = {t: len(types[types == t]) for t in unique_types}
     n_types = len(unique_names)
     n_particles = len(types)
-    total_volume = jnp.prod(box_size)
+    total_volume = jnp.prod(box_size) 
 
     name_to_type = {}
     for n, t in zip(unique_names, unique_types):
@@ -297,8 +300,11 @@ def get_config(
     config_dict["range_types"] = jnp.arange(n_types)
     config_dict["n_types"] = n_types
     config_dict["particle_per_type"] = particle_per_type
-    config_dict["chi_dict"] = {}
-    config_dict["type_to_chi"] = get_type_to_chi(n_types)
+    config_dict["sgm_dict"] = {}
+    config_dict["epsl_dict"] = {}
+    config_dict["sgm_table"] = {}
+    config_dict["epsl_table"] = {}
+    config_dict["type_to_LJ"] = get_type_to_LJ(n_types)
 
     config_dict["dielectric_const"] = 1.0  # default
 
@@ -314,30 +320,37 @@ def get_config(
         else:
             config_dict[k] = v
 
-    for k, v in config_dict.items():
-        if k == "chi":
-            chi_dict = {}
-            chi = np.zeros((n_types, n_types))
-            for i, c in enumerate(v):
-                # NOTE: this should already be sorted
-                type_0, type_1 = sorted((name_to_type[c[0]], name_to_type[c[1]]))
 
+    for k, v in config_dict.items():
+        if k == "LJ_param":
+            sgm_dict = {}
+            epsl_dict = {}
+
+            sgm = np.zeros((n_types, n_types))
+            epsl = np.zeros((n_types, n_types))
+
+            for i, c in enumerate(v):
+                type_0, type_1 = (name_to_type[c[0]], name_to_type[c[1]])
+                
+                # This will probably be used in training
                 val = c[2]
                 if database is not None:
                     for dbc in db_chi:
                         if c[:2] == dbc[:2]:
                             val = dbc[2]
                             break
+                        
+                sgm_dict[(type_0, type_1)] = c[2]    # Stil don't know where this is used. Will leave it here anyway
+                epsl_dict[(type_0, type_1)] = c[3]   
 
-                chi_dict[(type_0, type_1)] = val
-
-                # NOTE: this does not work if type indeces are bigger than array size,
-                # but it should never happen. When training multiple systems,
-                # we update the types at the end of this function.
-                chi[type_0, type_1] = val
-
-            config_dict["chi_dict"] = chi_dict
-            config_dict["chi"] = jnp.array(chi[np.triu_indices(n_types)])
+                sgm[type_0, type_1] = c[2]    
+                epsl[type_0, type_1] = c[3]         
+            
+            config_dict["sgm_dict"] = sgm_dict
+            config_dict["epsl_dict"] = epsl_dict
+            
+            config_dict["epsl_table"] = jnp.array(epsl + epsl.T - np.diag(np.diag(epsl)))
+            config_dict["sgm_table"] = jnp.array(sgm + sgm.T - np.diag(np.diag(sgm)))
 
         if k == "thermostat_coupling_groups":
             for i, name_list in enumerate(v):

@@ -1,5 +1,5 @@
 [simulation]
-n_steps = 10000                   # Number of outer steps
+n_steps = 100                   # Number of outer steps
 n_print = 1                       # Number of steps after which the positions are saved
 n_flush = 1                       # Number of prints after which the output file is saved
 time_step = 0.02                  # Inner loop timestep (for the fast forces)

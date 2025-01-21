@@ -2,11 +2,127 @@ from functools import partial
 from typing import Tuple
 
 import jax.numpy as jnp
-from jax import Array, jit, lax
+from jax import Array, jit, lax, value_and_grad
 from jax.typing import ArrayLike
 
 from .config import Config
 
+from .neighbor_list import apply_cutoff
+
+@jit
+def LJ_potential(r, e, s):
+    rnorm = jnp.linalg.norm(r)
+    return 4*e*( (s/rnorm)**12 - (s/rnorm)**6 )
+
+
+# @jit
+# def get_LJ_energy_and_forces(
+#     positions: Array, types: Array, sigma: Array, epsilon: Array,
+# ) -> Tuple[Array, Array]:
+#     """Compute Lennard-Jones forces for a set of particles."""
+#     num_particles = len(positions)
+#     forces = jnp.zeros((num_particles, 3))  # Initialize forces array
+#     energies = jnp.zeros((num_particles, 3))  # Initialize energies array
+#     for idx_i, i in enumerate(positions):
+#         for idx_j, j in enumerate(positions):
+#             if idx_j <= idx_i:  
+#                 continue
+
+#             # Vector difference 
+#             r_vec = i - j
+
+#             # Take interaction parameters            
+#             s, e = sigma[types[idx_i],types[idx_j]], epsilon[types[idx_i],types[idx_j]] 
+
+#             # Compute gradients
+#             LJ_grad = value_and_grad(LJ_potential)
+#             energy, grad = LJ_grad(r_vec, e, s)
+
+#             # Update forces and energies symmetrically
+#             forces = forces.at[idx_i].add(-grad)
+#             forces = forces.at[idx_j].add(grad)
+           
+#             energies = energies.at[idx_i].add(-energy)
+#             energies = energies.at[idx_j].add(energy) 
+
+#     return energies, jnp.sum(energies), forces
+
+
+@jit
+def get_LJ_energy_and_forces(
+    positions: Array,
+    types: Array,
+    sigma: Array, 
+    epsilon: Array, 
+    neighbors: dict[int, list], 
+    rc: float
+) -> Tuple[float, Array]:
+
+    LJ_grad = value_and_grad(LJ_potential)
+
+    num_particles = len(positions)
+    forces = jnp.zeros((num_particles, 3))  # Initialize forces array
+    energies = jnp.zeros((num_particles, 3))  # Initialize energies array
+
+    for i, j_list in neighbors.items():
+        print(i)
+        force = jnp.zeros(3)
+        energy = 0
+
+        i_r = positions[i]
+        j_r = jnp.array([positions[j] for j in j_list])
+        r_vec = j_r - i_r  # Code breaks if the neighbors list is empty
+        r_norm = jnp.array([jnp.linalg.norm(r) for r in r_vec])
+
+        sigma_values = jnp.array([sigma[types[i], types[j]] for j in j_list])
+        epsilon_values = jnp.array([epsilon[types[i], types[j]] for j in j_list])
+        
+        r_values, sigma_values, epsilon_values = apply_cutoff(r_vec, r_norm, sigma_values, epsilon_values, rc)
+        
+        # Iterate through individual particle pairs to calculate energy and force
+        for r, sigma_val, epsilon_val in zip(r_values, sigma_values, epsilon_values):
+            value, grad = LJ_grad(r, epsilon_val, sigma_val)  # Calculate for individual particle pair
+            force += grad
+            energy += value
+
+        forces = forces.at[i].add(force)
+        energies = energies.at[i].add(energy)
+    print(f'{jnp.sum(energies)}\n{forces}')
+    return jnp.sum(energies), forces
+
+
+@jit
+def get_LJ_energy_and_forces_npt(
+    positions: Array, types: Array, sigma: Array, epsilon: Array,
+) -> Tuple[Array, Array, Array]:
+    """Compute Lennard-Jones forces for a set of particles."""
+    num_particles = len(positions)
+    forces = jnp.zeros((num_particles, 3))  # Initialize forces array
+    energies = jnp.zeros((num_particles, 3))  # Initialize energies array
+
+    for idx_i, i in enumerate(positions):
+        for idx_j, j in enumerate(positions):
+            if idx_j <= idx_i:  
+                continue
+
+            # Vector difference 
+            r_vec = i - j
+
+            # Take interaction parameters            
+            s, e = sigma[types[idx_i],types[idx_j]], epsilon[types[idx_i],types[idx_j]] 
+
+            # Compute gradients
+            LJ_grad = value_and_grad(LJ_potential)
+            energy, grad = LJ_grad(r_vec, e, s)
+
+            # Update forces and energies symmetrically
+            forces = forces.at[idx_i].add(-grad)
+            forces = forces.at[idx_j].add(grad)
+           
+            energies = energies.at[idx_i].add(-energy)
+            energies = energies.at[idx_j].add(energy) 
+
+    return energies, forces#, vdw_pressure
 
 @jit
 def get_kernel(
@@ -348,7 +464,10 @@ def get_elec_forces(
 
 @jit
 def get_elec_energy_potential_and_forces(
-    positions: Array, elec_fog: Array, charges: Array, config: Config
+    positions: Array, 
+    elec_fog: Array, 
+    charges: Array, 
+    config: Config
 ) -> Tuple[Array, Array, Array]:
     phi_q = cic_paint(positions, config, mass=charges)
     phi_q_fourier = filter_density(phi_q, config)
