@@ -20,7 +20,6 @@ from .force import (
 from .input_parser import System
 from .integrator import integrate_position, integrate_velocity
 from .logger import Logger, format_timedelta
-from .neighbor_list import verlet_list
 from .pm_functions import (
     get_dipole_forces,
     get_elec_energy_potential_and_forces,
@@ -87,11 +86,14 @@ def main(args):
     elec_potential = jnp.zeros(config.mesh_size)
 
     # Make neighbor list
-    rv = 10.0 
-    rc = 10.0
+    rv = 1.4
+    rc = 1.2
     ns_nlist = 5 #Number of steps between update of list
-    nlist_calc = NeighborList(cutoff=rc, full_list=False)
+    nlist_calc = NeighborList(cutoff=rv, full_list=False)
     neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
+    neigh_i = jnp.array(neigh_i)
+    neigh_j = jnp.array(neigh_j)
+
 
     # Probably not needed. Will try to just use the config.sigma, config.epsilon
     # type_mask = {}
@@ -148,7 +150,7 @@ def main(args):
             reconstr_forces, dip_forces, transfer_matrices, *topol.bonds_d
         )
 
-    # Field stuff 
+    # Field stuff
     # if config.pressure or config.barostat:
     #     phi_fourier = jnp.zeros((config.n_types, *config.fft_shape), dtype=cdtype)
     #     field_energy, field_forces, field_pressure = get_field_energy_and_forces_npt(
@@ -216,7 +218,7 @@ def main(args):
             system.indices,
             onp.asarray(positions),
             onp.asarray(velocities),
-            onp.asarray(field_forces),
+            onp.asarray(LJ_forces),
             temperature,
             pressure,
             kinetic_energy,
@@ -272,8 +274,11 @@ def main(args):
                 Logger.rank0.log(logging.INFO, info_str)
 
         # Initial rRESPA velocity step
-        if step%ns_nlist == 0: 
-            verlet_list(positions, config.box_size, rv, config.n_particles)
+        if step%ns_nlist == 0:
+             neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
+        neigh_i = jnp.array(neigh_i)
+        neigh_j = jnp.array(neigh_j)
+        
 
         velocities = integrate_velocity(
             velocities,
@@ -379,8 +384,9 @@ def main(args):
         # Recompute after barostat
         # Why do this?
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(
-            positions, system.types, config.sgm_table, config.epsl_table, neighbors, rc
+            positions, system.types, config.sgm_table, config.epsl_table, neigh_i, neigh_j, config.box_size, rc
         )
+        # print("Energy sample:", LJ_forces[-1])
 
         if config.coulombtype and system.charges is not None:
             (
@@ -404,7 +410,7 @@ def main(args):
 
         velocities = integrate_velocity(
             velocities,
-            (field_forces + elec_forces + reconstr_forces) / config.mass,
+            (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
 
@@ -429,7 +435,7 @@ def main(args):
                     kinetic_pressure = 2.0 / 3.0 * kinetic_energy
                     pressure = (
                         kinetic_pressure
-                        + (field_pressure - field_energy - elec_energy)
+                        + (field_pressure - LJ_energy - elec_energy)
                         + bond_pressure
                         + angle_pressure
                         + dihedral_pressure
@@ -444,7 +450,7 @@ def main(args):
                     system.indices,
                     onp.asarray(positions),
                     onp.asarray(velocities),
-                    onp.asarray(field_forces),
+                    onp.asarray(LJ_forces),
                     temperature,
                     pressure,
                     kinetic_energy,
@@ -479,8 +485,9 @@ def main(args):
 
     if config.n_print > 0 and jnp.mod(config.n_steps - 1, config.n_print) != 0:
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(
-            positions, system.types, config.sgm_table, config.epsl_table, neighbors, rc
+            positions, system.types, config.sgm_table, config.epsl_table, neigh_i, neigh_j, config.box_size, rc
         )
+
         if config.coulombtype and system.charges is not None:
             (
                 elec_energy,

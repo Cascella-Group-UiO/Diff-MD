@@ -15,45 +15,20 @@ def LJ_potential(r, e, s):
     r6 = (s/rnorm)**6
     return 4.0 * e * r6 * (r6 - 1.0)
 
+# @jit
+# def LJ_forces(r, e, s):
+#     rnorm = jnp.linalg.norm(r)
+#     r2i = 1.0/(rnorm*rnorm)
+#     r6 = (s/rnorm)**6
+#     ff = 48.0*e*r6 * ( r6 - 0.5 ) * r2i * rnorm
+#     return r*ff
+
 @jit
 def LJ_forces(r, e, s):
-    rnorm = jnp.linalg.norm(r)
-    r2i = 1.0/(rnorm*rnorm)
-    r6 = (s/rnorm)**6
-    ff = 48.0*e*r6 * ( r6 - 0.5 ) * r2i
-    return r*ff
-
-# @jit
-# def get_LJ_energy_and_forces(
-#     positions: Array, types: Array, sigma: Array, epsilon: Array,
-# ) -> Tuple[Array, Array]:
-#     """Compute Lennard-Jones forces for a set of particles."""
-#     num_particles = len(positions)
-#     forces = jnp.zeros((num_particles, 3))  # Initialize forces array
-#     energies = jnp.zeros((num_particles, 3))  # Initialize energies array
-#     for idx_i, i in enumerate(positions):
-#         for idx_j, j in enumerate(positions):
-#             if idx_j <= idx_i:  
-#                 continue
-
-#             # Vector difference 
-#             r_vec = i - j
-
-#             # Take interaction parameters            
-#             s, e = sigma[types[idx_i],types[idx_j]], epsilon[types[idx_i],types[idx_j]] 
-
-#             # Compute gradients
-#             LJ_grad = value_and_grad(LJ_potential)
-#             energy, grad = LJ_grad(r_vec, e, s)
-
-#             # Update forces and energies symmetrically
-#             forces = forces.at[idx_i].add(-grad)
-#             forces = forces.at[idx_j].add(grad)
-           
-#             energies = energies.at[idx_i].add(-energy)
-#             energies = energies.at[idx_j].add(energy) 
-
-#     return energies, jnp.sum(energies), forces
+    r2 = r**2
+    r6 = r**6
+    s6 = s**6
+    return r * 48 * e * (s6/r6) * (s6/r6 - 0.5) * (1 / r2)
 
 
 @jit
@@ -72,26 +47,27 @@ def get_LJ_energy_and_forces(
     forces = jnp.zeros((num_particles, 3))  # Initialize forces array
     energy = 0.0  # Initialize energy
 
-    for i, j in zip(neigh_i, neigh_j):
-        i_r = positions[i]
-        j_r = positions[j]
-        r_vec = i_r - j_r
-        r_vec = r_vec - box * jnp.round(r_vec / box)
-        r_norm = jnp.linalg.norm(r_vec)
+    i = jnp.take(positions, neigh_i, axis=0)
+    j = jnp.take(positions, neigh_j, axis=0)
+    r_vec = i - j
+    r_vec = r_vec - box * jnp.around(r_vec / box)
+    r = jnp.linalg.norm(r_vec, axis=1) 
 
-        sigma_ij = sigma[types[i], types[j]]
-        epsilon_ij = epsilon[types[i], types[j]]
+    s_ij = sigma[types[neigh_i[:]], types[neigh_j[:]]]   
+    e_ij = epsilon[types[neigh_i[:]], types[neigh_j[:]]]
 
-        # compute the energy and force for each particle pair i, j
-        en_pair = LJ_potential(r_vec, epsilon_ij, sigma_ij)
-        ecut = LJ_potential(rc, epsilon_ij, sigma_ij) # TODO: make a table for this
-        f_pair = LJ_forces(r_vec, epsilon_ij, sigma_ij)
+    r_vec, r, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, rc)
 
-        forces = forces.at[i].add(f_pair)
-        forces = forces.at[j].add(-f_pair)
-        energy = en_pair - ecut
-    print(f'{energy}\n{forces}')
-    return energy, forces
+    force = LJ_forces(r, e_ij, s_ij)
+    force = force.reshape(len(force), 1)
+    forces = forces.at[neigh_i].add(force * r_vec)  
+    forces = forces.at[neigh_j].add(-force * r_vec) 
+
+    energy = LJ_potential(r, e_ij, s_ij)
+    e_cut =  LJ_potential(rc, e_ij, s_ij)
+    energy = energy - e_cut
+
+    return jnp.sum(energy), forces
 
 
 @jit

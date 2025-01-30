@@ -222,12 +222,12 @@ def store_static(
     )
     (
         _,
-        h5md.field_energy_step,
-        h5md.field_energy_time,
-        h5md.field_energy,
+        h5md.LJ_energy_step,
+        h5md.LJ_energy_time,
+        h5md.LJ_energy,
     ) = setup_time_dependent_element(
-        "field_energy", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
-    )
+        "LJ_energy", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
+    )    
     if charges is not False:
         (
             _,
@@ -360,7 +360,7 @@ def store_data(
     bond2_energy,
     bond3_energy,
     bond4_energy,
-    field_energy,
+    LJ_energy,
     field_q_energy,
     config,
     velocity_out=False,
@@ -376,7 +376,7 @@ def store_data(
         h5md.bond_energy_step,
         h5md.angle_energy_step,
         h5md.dihedral_energy_step,
-        h5md.field_energy_step,
+        h5md.LJ_energy_step,
         h5md.total_momentum_step,
         # h5md.angular_momentum_step,
         # h5md.torque_step,
@@ -394,7 +394,7 @@ def store_data(
         h5md.bond_energy_time,
         h5md.angle_energy_time,
         h5md.dihedral_energy_time,
-        h5md.field_energy_time,
+        h5md.LJ_energy_time,
         h5md.total_momentum_time,
         # h5md.angular_momentum_time,
         # h5md.torque_time,
@@ -415,7 +415,7 @@ def store_data(
         h5md.field_q_energy_time[frame] = step * config.outer_ts
 
     ind_sort = np.argsort(indices)
-    # positions, velocities and forces are already np.ndarryas
+    # positions, velocities and forces are already np.ndarrays
     h5md.positions[frame, indices[ind_sort]] = positions[ind_sort]
 
     if velocity_out:
@@ -425,8 +425,9 @@ def store_data(
     if charge_out:
         h5md.field_q_energy[frame] = field_q_energy
 
+
     potential_energy = (
-        bond2_energy + bond3_energy + bond4_energy + field_energy + field_q_energy
+        bond2_energy + bond3_energy + bond4_energy + LJ_energy + field_q_energy
     )
 
     total_momentum = np.sum(config.mass * velocities, axis=0)
@@ -439,7 +440,7 @@ def store_data(
     h5md.bond_energy[frame] = bond2_energy
     h5md.angle_energy[frame] = bond3_energy
     h5md.dihedral_energy[frame] = bond4_energy
-    h5md.field_energy[frame] = field_energy
+    h5md.LJ_energy[frame] = LJ_energy
     h5md.total_momentum[frame, :] = total_momentum
     # h5md.angular_momentum[frame, :] = angular_momentum
     # h5md.torque[frame, :] = torque
@@ -469,7 +470,7 @@ def store_data(
     # create mask to show only energies != 0
     en_array = np.array(
         [
-            field_energy,
+            LJ_energy,
             field_q_energy,
             bond2_energy,
             bond3_energy,
@@ -498,7 +499,7 @@ def store_data(
         total_energy / divide_by,
         kinetic_energy / divide_by,
         potential_energy / divide_by,
-        field_energy / divide_by,
+        LJ_energy / divide_by,
         field_q_energy / divide_by,
         bond2_energy / divide_by,
         bond3_energy / divide_by,
@@ -526,6 +527,7 @@ def write_full_trajectory(
         box_sizes,
         dih_energy,
         elec_energy,
+        LJ_energy,
         field_energy,
         forces,
         kinetic_energy,
@@ -541,6 +543,7 @@ def write_full_trajectory(
             h5md.bond_energy_step,
             h5md.angle_energy_step,
             h5md.dihedral_energy_step,
+            h5md.LJ_energy_step,
             h5md.field_energy_step,
             h5md.total_momentum_step,
             h5md.temperature_step,
@@ -556,6 +559,7 @@ def write_full_trajectory(
             h5md.bond_energy_time,
             h5md.angle_energy_time,
             h5md.dihedral_energy_time,
+            h5md.LJ_energy_time,
             h5md.field_energy_time,
             h5md.total_momentum_time,
             h5md.temperature_time,
@@ -584,7 +588,7 @@ def write_full_trajectory(
             h5md.field_q_energy[frame] = elec_energy
 
         potential_energy = (
-            bond_energy + angle_energy + dih_energy + field_energy + elec_energy
+            bond_energy + angle_energy + dih_energy + LJ_energy + elec_energy
         )
 
         total_momentum = np.sum(config.mass * np.asarray(velocities), axis=0)
@@ -595,6 +599,7 @@ def write_full_trajectory(
         h5md.bond_energy[frame] = bond_energy
         h5md.angle_energy[frame] = angle_energy
         h5md.dihedral_energy[frame] = dih_energy
+        h5md.LJ_energy[frame] = LJ_energy
         h5md.field_energy[frame] = field_energy
         h5md.total_momentum[frame, :] = total_momentum
         h5md.temperature[frame] = temperature
