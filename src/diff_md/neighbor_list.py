@@ -30,6 +30,8 @@ def apply_cutoff(
     """
     # Use jnp.less to create a boolean mask
     mask = jnp.less(r_norm, rc)
+    # Account for padding in nlists
+    mask = jnp.where(neigh_i==-1, False, mask)
 
     # Use jnp.where with the mask to get indices
     cut_indx = jnp.where(mask, size=r_norm.shape[0], fill_value=-1)[0]
@@ -49,5 +51,4 @@ def apply_cutoff(
     
 
     return r_values, r_norm, sigma_values, epsilon_values, neigh_i_mod, neigh_j_mod
-
 

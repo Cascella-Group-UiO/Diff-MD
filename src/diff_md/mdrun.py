@@ -23,7 +23,7 @@ from .logger import Logger, format_timedelta
 from .pm_functions import (
     get_dipole_forces,
     get_elec_energy_potential_and_forces,
-    get_LJ_energy_and_forces_npt, get_LJ_energy_and_forces, LJ_potential
+    get_LJ_energy_and_forces_npt, get_LJ_energy_and_forces
 )
 from .thermostat import (
     cancel_com_momentum,
@@ -86,14 +86,16 @@ def main(args):
     elec_potential = jnp.zeros(config.mesh_size)
 
     # Make neighbor list
-    rv = 1.4
-    rc = 1.2
-    ns_nlist = 5 #Number of steps between update of list
+    rv = config.rv #1.4 
+    rc = config.rc #1.2
+    ns_nlist = config.ns_nlist #5 #Number of steps between update of list
     nlist_calc = NeighborList(cutoff=rv, full_list=False)
-    neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
-    neigh_i = jnp.array(neigh_i)
-    neigh_j = jnp.array(neigh_j)
-
+    neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
+    max_neighbors = len(neigh_i) + config.n_particles
+    neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+    neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+    neigh_i = neigh_i.astype(jnp.int32)
+    neigh_j = neigh_j.astype(jnp.int32)
 
     # Probably not needed. Will try to just use the config.sigma, config.epsilon
     # type_mask = {}
@@ -275,9 +277,12 @@ def main(args):
 
         # Initial rRESPA velocity step
         if step%ns_nlist == 0:
-             neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
-        neigh_i = jnp.array(neigh_i)
-        neigh_j = jnp.array(neigh_j)
+            neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
+            
+            neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+            neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+            neigh_i = neigh_i.astype(jnp.int32)
+            neigh_j = neigh_j.astype(jnp.int32)
         
 
         velocities = integrate_velocity(

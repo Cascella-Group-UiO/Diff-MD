@@ -15,13 +15,6 @@ def LJ_potential(r, e, s):
     r6 = (s/rnorm)**6
     return 4.0 * e * r6 * (r6 - 1.0)
 
-# @jit
-# def LJ_forces(r, e, s):
-#     rnorm = jnp.linalg.norm(r)
-#     r2i = 1.0/(rnorm*rnorm)
-#     r6 = (s/rnorm)**6
-#     ff = 48.0*e*r6 * ( r6 - 0.5 ) * r2i * rnorm
-#     return r*ff
 
 @jit
 def LJ_forces(r, e, s):
@@ -59,6 +52,7 @@ def get_LJ_energy_and_forces(
     r_vec, r, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, rc)
 
     force = LJ_forces(r, e_ij, s_ij)
+    force = jnp.nan_to_num(force, nan=0.0)
     force = force.reshape(len(force), 1)
     forces = forces.at[neigh_i].add(force * r_vec)  
     forces = forces.at[neigh_j].add(-force * r_vec) 
@@ -69,39 +63,8 @@ def get_LJ_energy_and_forces(
 
     return jnp.sum(energy), forces
 
-
-@jit
-def get_LJ_energy_and_forces_npt(
-    positions: Array, types: Array, sigma: Array, epsilon: Array,
-) -> Tuple[Array, Array, Array]:
-    """Compute Lennard-Jones forces for a set of particles."""
-    num_particles = len(positions)
-    forces = jnp.zeros((num_particles, 3))  # Initialize forces array
-    energies = jnp.zeros((num_particles, 3))  # Initialize energies array
-
-    for idx_i, i in enumerate(positions):
-        for idx_j, j in enumerate(positions):
-            if idx_j <= idx_i:  
-                continue
-
-            # Vector difference 
-            r_vec = i - j
-
-            # Take interaction parameters            
-            s, e = sigma[types[idx_i],types[idx_j]], epsilon[types[idx_i],types[idx_j]] 
-
-            # Compute gradients
-            LJ_grad = value_and_grad(LJ_potential)
-            energy, grad = LJ_grad(r_vec, e, s)
-
-            # Update forces and energies symmetrically
-            forces = forces.at[idx_i].add(-grad)
-            forces = forces.at[idx_j].add(grad)
-           
-            energies = energies.at[idx_i].add(-energy)
-            energies = energies.at[idx_j].add(energy) 
-
-    return energies, forces#, vdw_pressure
+def get_LJ_energy_and_forces_npt():
+    return
 
 @jit
 def get_kernel(

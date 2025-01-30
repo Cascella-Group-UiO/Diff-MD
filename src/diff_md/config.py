@@ -57,6 +57,10 @@ class Config:
     sgm_table: Array = struct.field(pytree_node=False)
     epsl_table: Array = struct.field(pytree_node=False)
 
+    rv: int = struct.field(pytree_node=False)
+    rc: int = struct.field(pytree_node=False)
+    ns_nlist: int = struct.field(pytree_node=False)
+
     thermostat_coupling_groups: tuple[int, ArrayLike] = struct.field(pytree_node=False)
 
     respa_inner: int = struct.field(pytree_node=False, default=1)
