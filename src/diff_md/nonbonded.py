@@ -2,17 +2,16 @@ from functools import partial
 from typing import Tuple
 
 import jax.numpy as jnp
-from jax import Array, jit, lax, value_and_grad
+from jax import Array, jit, lax
 from jax.typing import ArrayLike
 
 from .config import Config
 
-from .neighbor_list import apply_cutoff
+from .neighbor_list import apply_cutoff, apply_cutoff_elec
 
 @jit
-def LJ_potential(r, e, s):
-    rnorm = jnp.linalg.norm(r)
-    r6 = (s/rnorm)**6
+def LJ_energy(r, e, s):
+    r6 = (s/r)**6
     return 4.0 * e * r6 * (r6 - 1.0)
 
 
@@ -21,16 +20,16 @@ def LJ_forces(r, e, s):
     r2 = r**2
     r6 = r**6
     s6 = s**6
-    return r * 48 * e * (s6/r6) * (s6/r6 - 0.5) * (1 / r2)
+    return 48 * e * (s6/r6) * (s6/r6 - 0.5) * (1 / r2)
 
 
 @jit
 def get_LJ_energy_and_forces(
     positions: Array,
     types: Array,
-    sigma: Array, 
-    epsilon: Array, 
-    neigh_i: Array, 
+    sigma: Array,
+    epsilon: Array,
+    neigh_i: Array,
     neigh_j: Array,
     box: Array,
     rc: float
@@ -44,9 +43,9 @@ def get_LJ_energy_and_forces(
     j = jnp.take(positions, neigh_j, axis=0)
     r_vec = i - j
     r_vec = r_vec - box * jnp.around(r_vec / box)
-    r = jnp.linalg.norm(r_vec, axis=1) 
+    r = jnp.linalg.norm(r_vec, axis=1)
 
-    s_ij = sigma[types[neigh_i[:]], types[neigh_j[:]]]   
+    s_ij = sigma[types[neigh_i[:]], types[neigh_j[:]]]
     e_ij = epsilon[types[neigh_i[:]], types[neigh_j[:]]]
 
     r_vec, r, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, rc)
@@ -54,17 +53,21 @@ def get_LJ_energy_and_forces(
     force = LJ_forces(r, e_ij, s_ij)
     force = jnp.nan_to_num(force, nan=0.0)
     force = force.reshape(len(force), 1)
-    forces = forces.at[neigh_i].add(force * r_vec)  
-    forces = forces.at[neigh_j].add(-force * r_vec) 
+    forces = forces.at[neigh_i].add(force * r_vec)
+    forces = forces.at[neigh_j].add(-force * r_vec)
 
-    energy = LJ_potential(r, e_ij, s_ij)
-    e_cut =  LJ_potential(rc, e_ij, s_ij)
+    energy = LJ_energy(r, e_ij, s_ij)
+    e_cut =  LJ_energy(rc, e_ij, s_ij)
+
     energy = energy - e_cut
+    energy = jnp.nan_to_num(energy, nan=0.0)
 
     return jnp.sum(energy), forces
 
+
 def get_LJ_energy_and_forces_npt():
     return
+
 
 @jit
 def get_kernel(
@@ -363,6 +366,172 @@ def comp_laplacian(laplacian: Array, phi_fourier: Array, config: Config) -> Arra
 
 
 @jit
+def reaction_field_potential(
+    r: Array, 
+    q_i: Array, 
+    q_j: Array, 
+    erf: float, 
+    er: float, 
+    rc: float) -> Array: 
+
+    krf = (erf - er) / (2*erf + er) * 1/rc**3
+    crf = 1/rc + krf*rc**2
+    c = 138.935458*q_i*q_j/er
+    return c * (1/r + krf*r**2-crf)
+
+
+def reaction_field_force(
+    r: Array, 
+    q_i: Array, 
+    q_j: Array, 
+    erf: float, 
+    er: float, 
+    rc: float) -> Array: 
+
+    krf = (erf - er) / (2*erf + er) * 1/rc**3
+    c = 138.935458*q_i*q_j/er
+    return c * (1/r**2 - 2*krf*r) / r
+
+
+@jit
+def ewald_real_space_potential(
+    q: Array,
+    r: Array,
+    alpha: float,
+    f: float,
+):
+    return f * q * lax.erfc(alpha * r) / r
+
+@jit
+def ewald_real_space_energy(
+    q_i: Array,
+    q_j: Array,
+    r: Array,
+    alpha: float,
+    f: float,
+):
+    return 0.5 * f * q_i * q_j * lax.erfc(alpha * r) / r
+
+@jit
+def ewald_real_space_forces(
+    q_i: Array,
+    q_j: Array,
+    r: Array,
+    alpha: float,
+    f: float,
+):
+    r2 = r**2
+    q = q_i * q_j
+    a = 2  * (jnp.sqrt(alpha/jnp.pi)) * jnp.exp(-alpha*r2)
+    b = lax.erfc(jnp.sqrt(alpha)*r)/r
+
+    return 0.5 * f * q * (a + b) * (1/r2)
+
+
+@jit
+def ewald_real_space(
+    positions: Array,
+    charges: Array,
+    neigh_i: Array,
+    neigh_j: Array,
+    config: Config,
+    rc: float
+) -> Tuple[float, Array]:
+
+    alpha = 1/(2*config.sigma**2)
+
+    num_particles = len(positions)
+    forces = jnp.zeros((num_particles, 3))  # Initialize forces array
+    energy = 0.0  # Initialize energy
+    potentials = jnp.zeros(num_particles)  # Initialize potentials arra
+
+    i = jnp.take(positions, neigh_i, axis=0)
+    j = jnp.take(positions, neigh_j, axis=0)
+    r_vec = i - j
+    r_vec = r_vec - config.box_size * jnp.around(r_vec / config.box_size)
+    r = jnp.linalg.norm(r_vec, axis=1)
+
+    q_i = charges[neigh_i]
+    q_j = charges[neigh_j]
+
+    r_vec, r, q_i, q_j, neigh_i, neigh_j = apply_cutoff_elec(r_vec, r, q_i, q_j, neigh_i, neigh_j, rc)
+ 
+    force = ewald_real_space_forces(q_i, q_j, r, alpha, config.elec_conversion)
+    force = jnp.nan_to_num(force, nan=0.0)
+    force = force.reshape(len(force), 1)
+    forces = forces.at[neigh_i].add(force * r_vec)
+    forces = forces.at[neigh_j].add(-force * r_vec)
+
+    energy = ewald_real_space_energy(q_i, q_j, r, alpha, config.elec_conversion)
+    energy = jnp.nan_to_num(energy, nan=0.0)
+
+    i_indices = jnp.concatenate([neigh_i, neigh_j])
+    j_indices = jnp.concatenate([neigh_j, neigh_i])
+
+    # Compute distance vector and magnitude
+    i = jnp.take(positions, i_indices, axis=0)
+    j = jnp.take(positions, j_indices, axis=0)
+    r_vec = i - j
+    r_vec = r_vec - config.box_size * jnp.around(r_vec / config.box_size)
+    r = jnp.linalg.norm(r_vec, axis=1)
+
+    q_j = jnp.squeeze(charges[j_indices])
+    q_i = jnp.squeeze(charges[i_indices])
+
+    # Compute the potential contribution from j to i
+    phi_contributions = ewald_real_space_potential(q_j, r, alpha, config.elec_conversion)  # (2M,)
+    phi_contributions = jnp.where(j_indices == -1, 0, phi_contributions)
+
+    # Scatter add contributions to potentials array
+    potentials = potentials.at[i_indices].add(phi_contributions)
+
+    return jnp.sum(energy), forces, jnp.sum(potentials)
+
+
+# @jit
+# def ewald_real_space(
+#     positions: Array,
+#     charges: Array,
+#     neigh_i: Array,
+#     neigh_j: Array,
+#     config: Config,
+#     rc: float
+# ) -> Tuple[float, Array]:
+
+#     alpha = 1/(2*config.sigma**2)
+
+#     num_particles = len(positions)
+#     forces = jnp.zeros((num_particles, 3))  # Initialize forces array
+#     energy = 0.0  # Initialize energy
+
+#     i = jnp.take(positions, neigh_i, axis=0)
+#     j = jnp.take(positions, neigh_j, axis=0)
+#     r_vec = i - j
+#     r_vec = r_vec - config.box_size * jnp.around(r_vec / config.box_size)
+#     r = jnp.linalg.norm(r_vec, axis=1)
+
+#     q_i = charges[neigh_i]
+#     q_j = charges[neigh_j]
+
+#     r_vec, r, q_i, q_j, neigh_i, neigh_j = apply_cutoff_elec(r_vec, r, q_i, q_j, neigh_i, neigh_j, rc)
+
+#     force = ewald_real_space_forces(q_i, q_j, r, alpha, config.elec_conversion)
+#     force = jnp.nan_to_num(force, nan=0.0)
+#     force = force.reshape(len(force), 1)
+#     forces = forces.at[neigh_i].add(force * r_vec)
+#     forces = forces.at[neigh_j].add(-force * r_vec)
+
+#     elec_potential = ewald_real_space_potential(q_j, r, alpha, config.elec_conversion) 
+#     elec_potential = jnp.nan_to_num(elec_potential, nan=0.0)
+#     energy = jnp.sum(elec_potential)
+
+#     energy = ewald_real_space_energy(q_i, q_j, r, alpha)
+#     energy = jnp.nan_to_num(energy, nan=0.0)
+
+#     return jnp.sum(energy), forces
+
+
+@jit
 def get_elec_potential_and_energy(
     phi_q: Array, phi_q_fourier: Array, config: Config
 ) -> Tuple[Array, Array]:
@@ -406,18 +575,22 @@ def get_elec_forces(
 
 @jit
 def get_elec_energy_potential_and_forces(
-    positions: Array, 
-    elec_fog: Array, 
-    charges: Array, 
-    config: Config
+    positions: Array,
+    elec_fog: Array,
+    charges: Array,
+    config: Config,
+    neigh_i: Array,
+    neigh_j: Array,
+    rc: float
 ) -> Tuple[Array, Array, Array]:
     phi_q = cic_paint(positions, config, mass=charges)
     phi_q_fourier = filter_density(phi_q, config)
     elec_forces = get_elec_forces(elec_fog, phi_q_fourier, positions, charges, config)
+    elec_energy_real, elec_forces_real, potential_real = ewald_real_space(positions, charges, neigh_i, neigh_j, config, rc)
     elec_potential, elec_energy = get_elec_potential_and_energy(
         phi_q, phi_q_fourier, config
     )
-    return elec_energy, elec_potential, elec_forces
+    return elec_energy+elec_energy_real, elec_potential+potential_real, elec_forces+elec_forces_real
 
 
 @partial(jit, static_argnums=(3,))

@@ -19,6 +19,7 @@ class Topology:
     angles: int = struct.field(pytree_node=False, default=False)
     dihedrals: int = struct.field(pytree_node=False, default=False)
     impropers: int = struct.field(pytree_node=False, default=False)
+    restraints: Array = struct.field(pytree_node=False, default=False)
     bonds_2: tuple[Array, ...] = struct.field(pytree_node=False, default=([], []))
     bonds_3: tuple[Array, ...] = struct.field(pytree_node=False, default=([], []))
     bonds_4: tuple[Array, ...] = struct.field(pytree_node=False, default=([], []))
@@ -68,14 +69,15 @@ def prepare_index_based_bonds(molecules, topol, training):
     angles = []
     dihedrals = []
     impropers = []
+    restraints = []
 
-    different_molecules = np.unique(molecules)
-    for mol in different_molecules:
-        resid = mol + 1
-        top_summary = topol["system"]["molecules"]
+    different_molecules = np.unique(molecules) 
+    for mol in different_molecules: # Iterate trough all individual molecules in the system
+        resid = mol + 1 # Offset the index  
+        top_summary = topol["system"]["molecules"] # Array with name of molecules and number of such molecules in the system. Similar to the molecules section in GROMACS topol file. 
         resname = None
         test_mol_number = 0
-        for molname in top_summary:
+        for molname in top_summary: 
             test_mol_number += molname[1]
             if resid <= test_mol_number:
                 resname = molname[0]
@@ -86,7 +88,14 @@ def prepare_index_based_bonds(molecules, topol, training):
 
         # resnames += resname * topol[resname]["n_atoms"]
 
-        if "bonds" in topol[resname]:
+        # Take index of restrained atoms    
+        if "restraints" in topol[resname]:
+            first_id = np.where(molecules == mol)[0][0]
+            for i in topol[resname]["restraints"][0]:
+                index_i = i - 1 + first_id  
+                restraints.append(index_i)   
+
+        if "bonds" in topol[resname]: # Information in topol[resname] is added in get_topol
             first_id = np.where(molecules == mol)[0][0]
             for bond in topol[resname]["bonds"]:
                 index_i = bond[0] - 1 + first_id
@@ -141,13 +150,14 @@ def prepare_index_based_bonds(molecules, topol, training):
             if not training.dihedrals:
                 # TODO: provide 'is_last' in the topology?
                 dihedrals[-1][-1] = 1
-    return bonds, angles, dihedrals, impropers
+            
+    return bonds, angles, dihedrals, impropers, restraints
 
 
 def prepare_bonds(molecules, topol, training=None):
     if training is None:
         training = GeneralModel()
-    bonds, angles, dihedrals, impropers = prepare_index_based_bonds(
+    bonds, angles, dihedrals, impropers, restraints = prepare_index_based_bonds(
         molecules, topol, training
     )
     # Bonds
@@ -277,6 +287,10 @@ def prepare_bonds(molecules, topol, training=None):
         jnp.array(improper_equilibrium),
         jnp.array(improper_strength),
     )
+    restraints = (
+        jnp.array(restraints)
+    )
+
     return Topology(
         # molecules_flag=True,
         molecules=topol["system"]["molecules"],
@@ -289,6 +303,7 @@ def prepare_bonds(molecules, topol, training=None):
         angles=n_angles,
         dihedrals=n_dihedrals,
         impropers=n_impropers,
+        restraints=restraints,
     )
 
 

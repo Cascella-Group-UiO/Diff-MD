@@ -18,9 +18,9 @@ from .force import (
     redistribute_dipole_forces,
 )
 from .input_parser import System
-from .integrator import integrate_position, integrate_velocity
+from .integrator import integrate_position, integrate_velocity, zero_velocities
 from .logger import Logger, format_timedelta
-from .pm_functions import (
+from .nonbonded import (
     get_dipole_forces,
     get_elec_energy_potential_and_forces,
     get_LJ_energy_and_forces_npt, get_LJ_energy_and_forces
@@ -50,6 +50,7 @@ def main(args):
     topol = system.topol
     positions = jnp.mod(system.positions, config.box_size)
     velocities = system.velocities
+    restr_atoms = topol.restraints # index of atoms to exclude from integration 
 
     if config.start_temperature:
         key, subkey = random.split(key)
@@ -91,7 +92,7 @@ def main(args):
     ns_nlist = config.ns_nlist #5 #Number of steps between update of list
     nlist_calc = NeighborList(cutoff=rv, full_list=False)
     neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
-    max_neighbors = len(neigh_i) + config.n_particles
+    max_neighbors = len(neigh_i) + config.n_particles*5
     neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
     neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
     neigh_i = neigh_i.astype(jnp.int32)
@@ -107,7 +108,7 @@ def main(args):
     if config.coulombtype and system.charges is not None:
         elec_fog = jnp.zeros((3, *config.mesh_size))
         elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(
-            positions, elec_fog, system.charges, config
+            positions, elec_fog, system.charges, config, neigh_i, neigh_j, rc
         )
     if topol.bonds:
         bond_energy, bond_forces, bond_pressure = get_bond_energy_and_forces(
@@ -167,7 +168,7 @@ def main(args):
     if config.pressure or config.barostat:
         #Not writen yet
         LJ_energy, LJ_forces, LJ_pressure = get_LJ_energy_and_forces_npt(
-            positions, system.types, config.sgm_table, config.epsl_table
+            positions, system.types, config.sgm_table, config.epsl_table, neigh_i, neigh_j, config.box_size, rc
         )
     else:
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(
@@ -290,6 +291,8 @@ def main(args):
             (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
+        if len(restr_atoms) > 0 :
+            velocities = zero_velocities(velocities, restr_atoms)
 
         # Inner rRESPA steps
         for _ in range(config.respa_inner):
@@ -299,6 +302,10 @@ def main(args):
                 / config.mass,
                 config.inner_ts,
             )
+            
+            if len(restr_atoms) > 0 :
+                velocities = zero_velocities(velocities, restr_atoms)
+
             positions = integrate_position(positions, velocities, config.inner_ts)
             positions = jnp.mod(positions, config.box_size)
 
@@ -346,7 +353,7 @@ def main(args):
                     elec_potential,
                     elec_forces,
                 ) = get_elec_energy_potential_and_forces(
-                    positions, elec_fog, system.charges, config
+                    positions, elec_fog, system.charges, config, neigh_i, neigh_j, rc
                 )
 
             # Get field pressure terms
@@ -399,7 +406,7 @@ def main(args):
                 elec_potential,
                 elec_forces,
             ) = get_elec_energy_potential_and_forces(
-                positions, elec_fog, system.charges, config
+                positions, elec_fog, system.charges, config, neigh_i, neigh_j, rc
             )
 
         if topol.dihedrals:
@@ -499,7 +506,7 @@ def main(args):
                 elec_potential,
                 elec_forces,
             ) = get_elec_energy_potential_and_forces(
-                positions, elec_fog, system.charges, config
+                positions, elec_fog, system.charges, config, neigh_i, neigh_j, rc
             )
         kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
 

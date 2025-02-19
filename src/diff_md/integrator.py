@@ -1,4 +1,5 @@
 from jax import jit
+import jax.numpy as jnp
 
 
 @jit
@@ -19,3 +20,9 @@ def lp_integrate_position(positions, velocities, time_step):
 @jit
 def lp_integrate_velocity(velocities, accelerations, time_step):
     return velocities + time_step * accelerations
+
+@jit
+def zero_velocities(velocities, restr_atoms):
+    mask = jnp.zeros(velocities.shape[0], dtype=bool).at[restr_atoms].set(True)
+    velocities = jnp.where(mask[:, None], jnp.array([0.0, 0.0, 0.0]), velocities)
+    return velocities
