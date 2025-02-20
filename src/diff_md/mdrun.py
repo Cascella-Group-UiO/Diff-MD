@@ -31,6 +31,8 @@ from .thermostat import (
     generate_initial_velocities,
 )
 
+from .neighbor_list import apply_nlist
+
 # pyright: reportUnboundVariable=none
 def main(args):
     start_time = datetime.datetime.now()
@@ -97,6 +99,7 @@ def main(args):
     neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
     neigh_i = neigh_i.astype(jnp.int32)
     neigh_j = neigh_j.astype(jnp.int32)
+    elec_param = apply_nlist(neigh_i, neigh_j, positions, system.charges, config.box_size)
 
     # Probably not needed. Will try to just use the config.sigma, config.epsilon
     # type_mask = {}
@@ -108,7 +111,7 @@ def main(args):
     if config.coulombtype and system.charges is not None:
         elec_fog = jnp.zeros((3, *config.mesh_size))
         elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(
-            positions, elec_fog, system.charges, config, neigh_i, neigh_j, rc
+            positions, elec_fog, system.charges, config, elec_param
         )
     if topol.bonds:
         bond_energy, bond_forces, bond_pressure = get_bond_energy_and_forces(
@@ -284,6 +287,9 @@ def main(args):
             neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
             neigh_i = neigh_i.astype(jnp.int32)
             neigh_j = neigh_j.astype(jnp.int32)
+            
+            elec_param = apply_nlist(neigh_i, neigh_j, positions, system.charges, config.box_size)
+
         
 
         velocities = integrate_velocity(
@@ -353,7 +359,7 @@ def main(args):
                     elec_potential,
                     elec_forces,
                 ) = get_elec_energy_potential_and_forces(
-                    positions, elec_fog, system.charges, config, neigh_i, neigh_j, rc
+                    positions, elec_fog, system.charges, config, elec_param
                 )
 
             # Get field pressure terms
@@ -406,7 +412,7 @@ def main(args):
                 elec_potential,
                 elec_forces,
             ) = get_elec_energy_potential_and_forces(
-                positions, elec_fog, system.charges, config, neigh_i, neigh_j, rc
+                positions, elec_fog, system.charges, config, elec_param
             )
 
         if topol.dihedrals:
@@ -506,7 +512,7 @@ def main(args):
                 elec_potential,
                 elec_forces,
             ) = get_elec_energy_potential_and_forces(
-                positions, elec_fog, system.charges, config, neigh_i, neigh_j, rc
+                positions, elec_fog, system.charges, config, elec_param
             )
         kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
 

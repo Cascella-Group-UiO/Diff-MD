@@ -12,7 +12,7 @@ from .force import (
     redistribute_dipole_forces,
 )
 from .integrator import integrate_position, integrate_velocity
-from .pm_functions import (
+from .nonbonded import (
     get_dipole_forces,
     get_elec_energy_potential_and_forces,
     get_field_energy_and_forces,
