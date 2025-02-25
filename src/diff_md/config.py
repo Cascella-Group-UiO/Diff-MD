@@ -437,10 +437,10 @@ def get_config(
                 exit()
 
     if charges is not None:
-        if not jnp.isclose(tot_charge := jnp.sum(charges), 0):
-            err_str = f"The sum of all charges should be equal to zero to avoid artifacts. Got {tot_charge}."
-            Logger.rank0.error(err_str)
-            exit()
+        # if not jnp.isclose(tot_charge := jnp.sum(charges), 0):
+        #     err_str = f"The sum of all charges should be equal to zero to avoid artifacts. Got {tot_charge}."
+        #     Logger.rank0.error(err_str)
+        #     exit()
         config_dict["coulombtype"] = 1
     else:
         config_dict["coulombtype"] = 0

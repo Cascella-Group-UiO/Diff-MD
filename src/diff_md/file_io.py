@@ -237,6 +237,23 @@ def store_static(
         ) = setup_time_dependent_element(
             "field_q_energy", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
         )
+        (
+            _,
+            h5md.elec_ener_real_step,
+            h5md.elec_ener_real_time,
+            h5md.elec_ener_real,
+        ) = setup_time_dependent_element(
+            "q_energy_real", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
+        )
+        (
+            _,
+            h5md.elec_ener_fourrier_step,
+            h5md.elec_ener_fourrier_time,
+            h5md.elec_ener_fourrier,
+        ) = setup_time_dependent_element(
+            "q_energy_fourrier", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
+        )
+
     (
         _,
         h5md.total_momentum_step,
@@ -362,6 +379,8 @@ def store_data(
     bond4_energy,
     LJ_energy,
     field_q_energy,
+    elec_ener_real,
+    elec_ener_fourrier,
     config,
     velocity_out=False,
     force_out=False,
@@ -413,6 +432,10 @@ def store_data(
     if charge_out:
         h5md.field_q_energy_step[frame] = step
         h5md.field_q_energy_time[frame] = step * config.outer_ts
+        h5md.elec_ener_real_step[frame] = step
+        h5md.elec_ener_real_time[frame] = step * config.outer_ts
+        h5md.elec_ener_fourrier_step[frame] = step
+        h5md.elec_ener_fourrier_time[frame] = step * config.outer_ts
 
     ind_sort = np.argsort(indices)
     # positions, velocities and forces are already np.ndarrays
@@ -424,6 +447,8 @@ def store_data(
         h5md.forces[frame, indices[ind_sort]] = forces[ind_sort]
     if charge_out:
         h5md.field_q_energy[frame] = field_q_energy
+        h5md.elec_ener_real[frame] = elec_ener_real
+        h5md.elec_ener_fourrier[frame] = elec_ener_fourrier
 
 
     potential_energy = (
@@ -456,7 +481,7 @@ def store_data(
         "tot E",
         "kin E",
         "pot E",
-        "Field E",
+        "LJ E",
         "Elec E",
         "bond E",
         "ang E",
@@ -528,7 +553,6 @@ def write_full_trajectory(
         dih_energy,
         elec_energy,
         LJ_energy,
-        field_energy,
         forces,
         kinetic_energy,
         positions,
@@ -544,7 +568,6 @@ def write_full_trajectory(
             h5md.angle_energy_step,
             h5md.dihedral_energy_step,
             h5md.LJ_energy_step,
-            h5md.field_energy_step,
             h5md.total_momentum_step,
             h5md.temperature_step,
             h5md.box_step,
@@ -560,7 +583,6 @@ def write_full_trajectory(
             h5md.angle_energy_time,
             h5md.dihedral_energy_time,
             h5md.LJ_energy_time,
-            h5md.field_energy_time,
             h5md.total_momentum_time,
             h5md.temperature_time,
             h5md.box_time,
@@ -576,6 +598,10 @@ def write_full_trajectory(
         if charge_out:
             h5md.field_q_energy_step[frame] = frame
             h5md.field_q_energy_time[frame] = frame * config.outer_ts
+            # h5md.elec_ener_real_step[frame] = frame
+            # h5md.elec_ener_real_time[frame] = frame * config.outer_ts
+            # h5md.elec_ener_fourrier_step[frame] = frame
+            # h5md.elec_ener_fourrier_time[frame] = frame * config.outer_ts
 
         ind_sort = np.argsort(indices)
         h5md.positions[frame, indices[ind_sort]] = np.asarray(positions)[ind_sort]
@@ -586,6 +612,7 @@ def write_full_trajectory(
             h5md.forces[frame, indices[ind_sort]] = np.asarray(forces)[ind_sort]
         if charge_out:
             h5md.field_q_energy[frame] = elec_energy
+
 
         potential_energy = (
             bond_energy + angle_energy + dih_energy + LJ_energy + elec_energy
@@ -600,7 +627,6 @@ def write_full_trajectory(
         h5md.angle_energy[frame] = angle_energy
         h5md.dihedral_energy[frame] = dih_energy
         h5md.LJ_energy[frame] = LJ_energy
-        h5md.field_energy[frame] = field_energy
         h5md.total_momentum[frame, :] = total_momentum
         h5md.temperature[frame] = temperature
         for d in range(3):
