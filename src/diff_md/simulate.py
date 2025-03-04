@@ -123,7 +123,7 @@ def simulator(
         )
         dihedral_energy += improper_energy
 
-    # Calculate initial elerctrostatic energy and forces
+    # Calculate initial electrostatic energy and forces
     if config.coulombtype:
         elec_fog = jnp.zeros((3, *config.empty_mesh.shape))
         elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(
@@ -290,7 +290,7 @@ def simulator(
             positions, phi, field_forces, field_fog, chi, type_mask, config
         )
 
-        if config.coulombtype:
+        if config.coulombtype == 1:
             (
                 elec_energy,
                 elec_potential,
@@ -298,6 +298,14 @@ def simulator(
             ) = get_elec_energy_potential_and_forces(
                 positions, elec_fog, charges, config
             )
+        # elif config.coulombtype == 2:
+        #     (
+        #         elec_energy,
+        #         elec_potential,
+        #         elec_forces,
+        #     ) = get_elec_energy_potential_and_forces(
+        #         positions, elec_fog, charges, config
+        #     )
 
         if topol.dihedrals:
             transfer_matrices, dip_positions = get_protein_dipoles(

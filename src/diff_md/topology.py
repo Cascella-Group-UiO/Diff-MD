@@ -6,9 +6,13 @@ import numpy as np
 from flax import struct
 from jax import Array
 
-from .config import read_toml
+from .config import read_toml, Config
 from .logger import Logger
 from .models import GeneralModel
+
+# from .config import config, n_particles, nrexcl 
+from scipy.sparse.csgraph import shortest_path
+from scipy.sparse import csr_array
 
 
 @struct.dataclass
@@ -25,10 +29,11 @@ class Topology:
     bonds_4: tuple[Array, ...] = struct.field(pytree_node=False, default=([], []))
     bonds_d: tuple[Array, ...] = struct.field(pytree_node=False, default=([], []))
     bonds_impr: tuple[Array, ...] = struct.field(pytree_node=False, default=([], []))
+    excluded_pairs: tuple[Array, ...] = struct.field(pytree_node=False, default=([], []))
 
 
 def get_topol(
-    file_path: str, molecules: np.ndarray, model: Optional[GeneralModel] = None
+    file_path: str, molecules: np.ndarray, config: Config, model: Optional[GeneralModel] = None
 ) -> Topology:
     try:
         toml_topol = read_toml(file_path)
@@ -57,11 +62,30 @@ def get_topol(
         )
         exit()
 
-    topol = prepare_bonds(molecules, toml_topol, training=model)
+    topol = prepare_bonds(molecules, toml_topol, config, training=model)
     Logger.rank0.info(
         f"Topology file '{file_path}' parsed successfully.",
     )
     return topol
+
+
+def find_excluded_pairs(i_atoms, j_atoms, nrexcl, num_particles):
+    adjacency_matrix = np.zeros((num_particles, num_particles), dtype=int)
+    for i, j in zip(i_atoms, j_atoms):
+      adjacency_matrix[i][j] = 1
+      adjacency_matrix[j][i] = 1
+
+    dist_matrix, _ = shortest_path(csr_array(adjacency_matrix), directed=False, return_predecessors=True)
+    pairs_i = []
+    pairs_j = []
+    for bond_level in range(1, nrexcl + 1):
+        for i in range(num_particles):
+            for j in range(i + 1, num_particles):
+                if dist_matrix[i][j] == bond_level:
+                    pairs_i.append(i)
+                    pairs_j.append(j)
+
+    return (jnp.asarray(pairs_i), jnp.asarray(pairs_j))
 
 
 def prepare_index_based_bonds(molecules, topol, training):
@@ -154,7 +178,7 @@ def prepare_index_based_bonds(molecules, topol, training):
     return bonds, angles, dihedrals, impropers, restraints
 
 
-def prepare_bonds(molecules, topol, training=None):
+def prepare_bonds(molecules, topol, config, training=None):
     if training is None:
         training = GeneralModel()
     bonds, angles, dihedrals, impropers, restraints = prepare_index_based_bonds(
@@ -291,6 +315,9 @@ def prepare_bonds(molecules, topol, training=None):
         jnp.array(restraints)
     )
 
+    # NOTE: Add excpetion for when there is no bond in the system
+    excluded_pairs = find_excluded_pairs(bonds_atom1, bonds_atom2, config.nrexcl, config.n_particles)
+
     return Topology(
         # molecules_flag=True,
         molecules=topol["system"]["molecules"],
@@ -304,6 +331,7 @@ def prepare_bonds(molecules, topol, training=None):
         dihedrals=n_dihedrals,
         impropers=n_impropers,
         restraints=restraints,
+        excluded_pairs = excluded_pairs
     )
 
 

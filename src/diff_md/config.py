@@ -61,6 +61,7 @@ class Config:
     rc: float = struct.field(pytree_node=False)
     rlj: float = struct.field(pytree_node=False)
     ns_nlist: int = struct.field(pytree_node=False)
+    nrexcl: int = struct.field(pytree_node=False)
     epsilon_rf: float = struct.field(pytree_node=False)
 
     thermostat_coupling_groups: tuple[int, ArrayLike] = struct.field(pytree_node=False)
@@ -435,15 +436,35 @@ def get_config(
                 err_str = "Barostat type 'surface_tension' is currently only available with the 'scr' barostat."
                 Logger.rank0.error(err_str)
                 exit()
-
+    
     if charges is not None:
-        # if not jnp.isclose(tot_charge := jnp.sum(charges), 0):
-        #     err_str = f"The sum of all charges should be equal to zero to avoid artifacts. Got {tot_charge}."
-        #     Logger.rank0.error(err_str)
-        #     exit()
-        config_dict["coulombtype"] = 1
-    else:
-        config_dict["coulombtype"] = 0
+        if not jnp.isclose(tot_charge := jnp.sum(charges), 0):
+            err_str = f"The sum of all charges should be equal to zero to avoid artifacts. Got {tot_charge}."
+            Logger.rank0.error(err_str)
+            exit()
+        
+        coulombtype = {"no": 0, "pme": 1, "reaction-field": 2}
+        ctype = config_dict["coulombtype"]
+
+        if ctype not in coulombtype.keys():
+            err_str = f"Valid electrostatic interaction options are: 'no', 'pme', 'reaction-field'. Got '{ctype}'."
+            Logger.rank0.error(err_str)
+            exit()
+        else:
+            config_dict["coulombtype"] = coulombtype[ctype]
+
+        if config_dict["coulombtype"] == 0:
+            err_str = "Charged particles are present in the system but coulombtype = no. Electrostatic interactions will not be calculated."
+            Logger.rank0.error(err_str)
+
+    # if charges is not None:
+    #     if not jnp.isclose(tot_charge := jnp.sum(charges), 0):
+    #         err_str = f"The sum of all charges should be equal to zero to avoid artifacts. Got {tot_charge}."
+    #         Logger.rank0.error(err_str)
+    #         exit()
+    #     config_dict["coulombtype"] = 1
+    # else:
+    #     config_dict["coulombtype"] = 0
 
     # HyMD options not used in Diff-MD
     for opt in ("integrator", "hamiltonian"):

@@ -23,7 +23,8 @@ from .logger import Logger, format_timedelta
 from .nonbonded import (
     get_dipole_forces,
     get_elec_energy_potential_and_forces,
-    get_LJ_energy_and_forces_npt, get_LJ_energy_and_forces
+    get_LJ_energy_and_forces, get_LJ_energy_and_forces_npt,
+    get_reaction_field_energy_and_forces, get_reaction_field_energy_and_forces_npt
 )
 from .thermostat import (
     cancel_com_momentum,
@@ -31,7 +32,8 @@ from .thermostat import (
     generate_initial_velocities,
 )
 
-from .neighbor_list import apply_nlist, apply_nlist_elec
+from .neighbor_list import apply_nlist, apply_nlist_elec, exclude_bonded_neighbors
+
 
 # pyright: reportUnboundVariable=none
 def main(args):
@@ -89,8 +91,8 @@ def main(args):
     elec_potential = jnp.zeros(config.mesh_size)
 
     # Make neighbor list
-    rv = config.rv #1.4 
-    ns_nlist = config.ns_nlist #5 #Number of steps between update of list
+    rv = config.rv 
+    ns_nlist = config.ns_nlist 
     nlist_calc = NeighborList(cutoff=rv, full_list=False)
     neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
     max_neighbors = len(neigh_i) + config.n_particles*5
@@ -99,10 +101,41 @@ def main(args):
     neigh_i = neigh_i.astype(jnp.int32)
     neigh_j = neigh_j.astype(jnp.int32)
 
+    if topol.excluded_pairs is not None:
+        neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
+
     if config.coulombtype and system.charges is not None:
-        pair_params = apply_nlist_elec(neigh_i, neigh_j, positions, system.charges, config.box_size, config.sgm_table, config.epsl_table, system.types)
+        pair_params = apply_nlist_elec(
+            neigh_i, 
+            neigh_j, 
+            positions, 
+            system.charges, 
+            config.box_size, 
+            config.sgm_table, 
+            config.epsl_table, 
+            system.types
+        )
+        if topol.excluded_pairs is not None:
+            excl_pair_params = apply_nlist_elec(
+                topol.excluded_pairs[0],
+                topol.excluded_pairs[1],
+                positions,
+                system.charges,
+                config.box_size,
+                config.sgm_table,
+                config.epsl_table,
+                system.types,
+            )
     else:
-        pair_params = apply_nlist(neigh_i, neigh_j, positions, config.box_size, config.sgm_table, config.epsl_table, system.types)
+        pair_params = apply_nlist(
+            neigh_i, 
+            neigh_j, 
+            positions, 
+            config.box_size, 
+            config.sgm_table, 
+            config.epsl_table, 
+            system.types
+        )
 
     # Probably not needed. Will try to just use the config.sigma, config.epsilon
     # type_mask = {}
@@ -111,11 +144,16 @@ def main(args):
     #     chi = chi.at[i].set(config.chi[config.type_to_chi[ti]])
     # chi = chi.reshape(config.n_types, config.n_types, 1, 1, 1)
 
-    if config.coulombtype and system.charges is not None:
-        elec_fog = jnp.zeros((3, *config.mesh_size))
-        elec_energy, elec_potential, elec_forces, elec_ener_real, elec_ener_fourrier = get_elec_energy_potential_and_forces(
-            positions, elec_fog, system.charges, config, pair_params
-        )
+    if system.charges is not None:
+        if config.coulombtype == 1:
+            elec_fog = jnp.zeros((3, *config.mesh_size))
+            elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(
+                positions, elec_fog, system.charges, config, pair_params
+            )
+        elif config.coulombtype == 2:
+            elec_energy, elec_potential, elec_forces = get_reaction_field_energy_and_forces(
+                elec_forces, pair_params, config, excl_pair_params
+            )
     if topol.bonds:
         bond_energy, bond_forces, bond_pressure = get_bond_energy_and_forces(
             bond_forces, positions, config.box_size, *topol.bonds_2
@@ -172,13 +210,12 @@ def main(args):
     #     )
 
     if config.pressure or config.barostat:
-        #Not writen yet
         LJ_energy, LJ_forces, LJ_pressure = get_LJ_energy_and_forces_npt(
-            pair_params, config
+            LJ_forces, pair_params, config
         )
     else:
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(
-            pair_params, config
+            LJ_forces, pair_params, config
         )
 
     kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
@@ -236,8 +273,8 @@ def main(args):
             dihedral_energy,
             LJ_energy,
             elec_energy,
-            elec_ener_real,
-            elec_ener_fourrier,
+            # elec_ener_real,
+            # elec_ener_fourrier,
             config,
             velocity_out=True,
             force_out=True,
@@ -287,12 +324,13 @@ def main(args):
         # Initial rRESPA velocity step
         if step%ns_nlist == 0:
             neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
-            
             neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
             neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
             neigh_i = neigh_i.astype(jnp.int32)
             neigh_j = neigh_j.astype(jnp.int32)
-            
+
+            if topol.excluded_pairs is not None:
+                neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
 
         if len(restr_atoms) > 0 :
             LJ_forces = zero_forces(LJ_forces, restr_atoms)
@@ -320,9 +358,6 @@ def main(args):
                 config.inner_ts,
             )
             
-            # if len(restr_atoms) > 0 :
-            #     velocities = zero_velocities(velocities, restr_atoms)
-
             positions = integrate_position(positions, velocities, config.inner_ts)
             positions = jnp.mod(positions, config.box_size)
 
@@ -365,30 +400,63 @@ def main(args):
         # Barostat
         if config.barostat and (jnp.mod(step, config.n_b) == 0):
             if config.coulombtype and system.charges is not None:
-                (
-                    elec_energy,
-                    elec_potential,
-                    elec_forces,
-                ) = get_elec_energy_potential_and_forces(
-                    positions, elec_fog, system.charges, config, pair_params
+                pair_params = apply_nlist_elec(
+                    neigh_i, 
+                    neigh_j, 
+                    positions, 
+                    system.charges, 
+                    config.box_size, 
+                    config.sgm_table, 
+                    config.epsl_table, 
+                    system.types
                 )
+                if topol.excluded_pairs is not None:
+                    excl_pair_params = apply_nlist_elec(
+                        topol.excluded_pairs[0],
+                        topol.excluded_pairs[1],
+                        positions,
+                        system.charges,
+                        config.box_size,
+                        config.sgm_table,
+                        config.epsl_table,
+                        system.types,
+                    )
+            else:
+                pair_params = apply_nlist(
+                    neigh_i, 
+                    neigh_j, 
+                    positions, 
+                    config.box_size, 
+                    config.sgm_table, 
+                    config.epsl_table, 
+                    system.types
+                )            
 
-            # Get field pressure terms
-            # (
-            #     field_energy,
-            #     field_forces,
-            #     field_pressure,
-            # ) = get_field_energy_and_forces_npt(
-            #     # fmt: off
-            #     positions, phi, phi_fourier, field_forces, field_fog, chi, type_mask, elec_potential, config
-            # )
+            if system.charges is not None:
+                if config.coulombtype == 1:
+                    (
+                        elec_energy,
+                        elec_potential,
+                        elec_forces,
+                    ) = get_elec_energy_potential_and_forces(
+                        positions, elec_fog, system.charges, config, pair_params
+                    )
+                elif config.coulombtype == 2:
+                    (
+                        elec_energy, 
+                        elec_potential, 
+                        elec_forces,
+                        ele_pressure
+                    ) = get_reaction_field_energy_and_forces_npt(
+                        elec_forces, pair_params, config
+                    )
 
             (
                 LJ_energy,
                 LJ_forces,
                 LJ_pressure
             ) = get_LJ_energy_and_forces_npt(
-                pair_params, config
+                LJ_forces, pair_params, config
             )
 
             # Calculate pressure
@@ -417,27 +485,62 @@ def main(args):
                     config,
                     key,
                 )
-        
+
         if config.coulombtype and system.charges is not None:
-            pair_params = apply_nlist_elec(neigh_i, neigh_j, positions, system.charges, config.box_size, config.sgm_table, config.epsl_table, system.types)
+            pair_params = apply_nlist_elec(
+                neigh_i, 
+                neigh_j, 
+                positions, 
+                system.charges, 
+                config.box_size, 
+                config.sgm_table, 
+                config.epsl_table, 
+                system.types
+            )
+            if topol.excluded_pairs is not None:
+                excl_pair_params = apply_nlist_elec(
+                    topol.excluded_pairs[0],
+                    topol.excluded_pairs[1],
+                    positions,
+                    system.charges,
+                    config.box_size,
+                    config.sgm_table,
+                    config.epsl_table,
+                    system.types,
+                )
         else:
-            pair_params = apply_nlist(neigh_i, neigh_j, positions, config.box_size, config.sgm_table, config.epsl_table, system.types)
+            pair_params = apply_nlist(
+                neigh_i, 
+                neigh_j, 
+                positions, 
+                config.box_size, 
+                config.sgm_table, 
+                config.epsl_table, 
+                system.types
+            )
 
         # Recompute after barostat
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(
-            pair_params, config 
+            LJ_forces, pair_params, config 
         )
 
-        if config.coulombtype and system.charges is not None:
-            (
-                elec_energy,
-                elec_potential,
-                elec_forces,
-                elec_ener_real, 
-                elec_ener_fourrier 
-            ) = get_elec_energy_potential_and_forces(
-                positions, elec_fog, system.charges, config, pair_params
-            )
+        if system.charges is not None:
+            if config.coulombtype == 1:
+                (
+                    elec_energy,
+                    elec_potential,
+                    elec_forces,
+                ) = get_elec_energy_potential_and_forces(
+                    positions, elec_fog, system.charges, config, pair_params
+                )
+            elif config.coulombtype == 2:
+                (
+                    elec_energy, 
+                    elec_potential, 
+                    elec_forces,
+                ) = get_reaction_field_energy_and_forces(
+                    elec_forces, pair_params, config, excl_pair_params
+                )
 
         if topol.dihedrals:
             transfer_matrices, dip_positions = get_protein_dipoles(
@@ -482,7 +585,7 @@ def main(args):
                         + bond_pressure
                         + angle_pressure
                         + dihedral_pressure
-                    ) / config.volume
+                    ) / config.volumebarostat
                 else:
                     pressure = 0.0
 
@@ -502,8 +605,8 @@ def main(args):
                     dihedral_energy,
                     LJ_energy,
                     elec_energy,
-                    elec_ener_real,
-                    elec_ener_fourrier,
+                    # elec_ener_real,
+                    # elec_ener_fourrier,
                     config,
                     velocity_out=True,
                     force_out=True,
@@ -530,19 +633,28 @@ def main(args):
 
     if config.n_print > 0 and jnp.mod(config.n_steps - 1, config.n_print) != 0:
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(
-            pair_params, config 
+            LJ_forces, pair_params, config 
         )
 
-        if config.coulombtype and system.charges is not None:
-            (
-                elec_energy,
-                elec_potential,
-                elec_forces,
-                elec_ener_real, 
-                elec_ener_fourrier 
-            ) = get_elec_energy_potential_and_forces(
-                positions, elec_fog, system.charges, config, pair_params
-            )
+        if system.charges is not None:
+            if config.coulombtype == 1:
+                (
+                    elec_energy,
+                    elec_potential,
+                    elec_forces,
+                ) = get_elec_energy_potential_and_forces(
+                    positions, elec_fog, system.charges, config, pair_params
+                )
+            elif config.coulombtype == 2:
+                (
+                    elec_energy, 
+                    elec_potential, 
+                    elec_forces,
+                ) = get_reaction_field_energy_and_forces(
+                    elec_forces, pair_params, config, excl_pair_params
+                )        
+
+
         kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
 
         frame = (step + 1) // config.n_print
@@ -576,8 +688,8 @@ def main(args):
             dihedral_energy,
             LJ_energy,
             elec_energy,
-            elec_ener_real,
-            elec_ener_fourrier,
+            # elec_ener_real,
+            # elec_ener_fourrier,
             config,
             velocity_out=True,
             force_out=True,

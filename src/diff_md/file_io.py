@@ -237,22 +237,22 @@ def store_static(
         ) = setup_time_dependent_element(
             "field_q_energy", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
         )
-        (
-            _,
-            h5md.elec_ener_real_step,
-            h5md.elec_ener_real_time,
-            h5md.elec_ener_real,
-        ) = setup_time_dependent_element(
-            "q_energy_real", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
-        )
-        (
-            _,
-            h5md.elec_ener_fourrier_step,
-            h5md.elec_ener_fourrier_time,
-            h5md.elec_ener_fourrier,
-        ) = setup_time_dependent_element(
-            "q_energy_fourrier", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
-        )
+        # (
+        #     _,
+        #     h5md.elec_ener_real_step,
+        #     h5md.elec_ener_real_time,
+        #     h5md.elec_ener_real,
+        # ) = setup_time_dependent_element(
+        #     "q_energy_real", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
+        # )
+        # (
+        #     _,
+        #     h5md.elec_ener_fourrier_step,
+        #     h5md.elec_ener_fourrier_time,
+        #     h5md.elec_ener_fourrier,
+        # ) = setup_time_dependent_element(
+        #     "q_energy_fourrier", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
+        # )
 
     (
         _,
@@ -379,8 +379,8 @@ def store_data(
     bond4_energy,
     LJ_energy,
     field_q_energy,
-    elec_ener_real,
-    elec_ener_fourrier,
+    # elec_ener_real,
+    # elec_ener_fourrier,
     config,
     velocity_out=False,
     force_out=False,
@@ -432,10 +432,10 @@ def store_data(
     if charge_out:
         h5md.field_q_energy_step[frame] = step
         h5md.field_q_energy_time[frame] = step * config.outer_ts
-        h5md.elec_ener_real_step[frame] = step
-        h5md.elec_ener_real_time[frame] = step * config.outer_ts
-        h5md.elec_ener_fourrier_step[frame] = step
-        h5md.elec_ener_fourrier_time[frame] = step * config.outer_ts
+        # h5md.elec_ener_real_step[frame] = step
+        # h5md.elec_ener_real_time[frame] = step * config.outer_ts
+        # h5md.elec_ener_fourrier_step[frame] = step
+        # h5md.elec_ener_fourrier_time[frame] = step * config.outer_ts
 
     ind_sort = np.argsort(indices)
     # positions, velocities and forces are already np.ndarrays
@@ -447,8 +447,8 @@ def store_data(
         h5md.forces[frame, indices[ind_sort]] = forces[ind_sort]
     if charge_out:
         h5md.field_q_energy[frame] = field_q_energy
-        h5md.elec_ener_real[frame] = elec_ener_real
-        h5md.elec_ener_fourrier[frame] = elec_ener_fourrier
+        # h5md.elec_ener_real[frame] = elec_ener_real
+        # h5md.elec_ener_fourrier[frame] = elec_ener_fourrier
 
 
     potential_energy = (

@@ -20,13 +20,12 @@ def LJ_energy(r_vec, s, e):
 
 @jit
 def get_LJ_energy_and_forces(
+    forces: Array,
     pair_params: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config
 ) -> Tuple[float, Array]:
 
-    num_particles = config.n_particles
-    forces = jnp.zeros((num_particles, 3))
-    energy = 0.0  
+    forces = forces.at[...].set(0.0)
 
     r_vec, r, neigh_i, neigh_j, _, _, s_ij, e_ij = pair_params
     r_vec, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, config.rlj)
@@ -45,14 +44,14 @@ def get_LJ_energy_and_forces(
     return jnp.sum(energy), forces
 
 
-def get_LJ_energy_and_forces_npt(    
+def get_LJ_energy_and_forces_npt(
     pair_params: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config
 ) -> Tuple[float, Array]:
 
     num_particles = config.n_particles
     forces = jnp.zeros((num_particles, 3))
-    energy = 0.0  
+    energy = 0.0
 
     r_vec, r, neigh_i, neigh_j, _, _, s_ij, e_ij = pair_params
     r_vec, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, config.rlj)
@@ -371,12 +370,12 @@ def comp_laplacian(laplacian: Array, phi_fourier: Array, config: Config) -> Arra
 
 @jit
 def reaction_field_force(
-    r: Array, 
-    q_i: Array, 
-    q_j: Array, 
-    erf: float, 
-    er: float, 
-    rc: float) -> Array: 
+    r: Array,
+    q_i: Array,
+    q_j: Array,
+    erf: float,
+    er: float,
+    rc: float) -> Array:
 
     krf = (erf - er) / (2*erf + er) * 1/rc**3
     c = 138.935458*q_i*q_j/er
@@ -385,31 +384,134 @@ def reaction_field_force(
 
 @jit
 def reaction_field_potential(
-    r_vec: Array, 
-    erf: float, 
-    er: float, 
+    r_vec: Array,
+    erf: float,
+    er: float,
     rc: float,
     f: float
-) -> Array: 
-    
+) -> Array:
+
     r = jnp.linalg.norm(r_vec, axis=0)
-    krf = (erf - er) / (2*erf + er) * 1/rc**3
+    krf = (erf - er) / (2*erf + er) / rc**3
     crf = 1/rc + krf*rc**2
 
-    return f * (1/r + krf*r**2-crf)
+    return f * (1/r + krf*r**2-crf) / er
+
+
+@jit
+def rf_potential_masked_pairs(
+    r_vec: Array,
+    erf: float,
+    er: float,
+    rc: float,
+    f: float
+) -> Array:
+
+    r = jnp.linalg.norm(r_vec, axis=0)
+    krf = (erf - er) / (2*erf + er) / rc**3
+    crf = 1/rc + krf*rc**2
+
+    return f * (crf + krf*r**2) / er
+
+
+# Does this contribute to the potential or only energy?
+def rf_self(r, f, rc, erf, er, q):
+    return f * q**2 / (2 * er * rc) * (3 * erf / (2 * erf + er))
+
+
+@jit
+def get_rf_excluded_pairs_energy_and_forces(
+    excl_pair_param,
+    config,
+    forces,
+    potentials,
+    energy,
+    potential    
+):
+    r_vec, _, neigh_i, neigh_j, q_i, q_j, _, _ = excl_pair_param
+
+    func = vmap(value_and_grad(reaction_field_potential), (0, None, None, None, None))
+    phi_contributions, grads = func(r_vec, config.epsilon_rf, config.dielectric_const, config.rc, config.elec_conversion)
+
+    # Forces
+    grads = jnp.where((neigh_i == -1)[:, None], jnp.zeros(3), grads)
+    forces = forces.at[neigh_i].add(-grads*q_i*q_j)
+    forces = forces.at[neigh_j].add(grads*q_i*q_j)
+
+    q_i = jnp.squeeze(q_i)
+    q_j = jnp.squeeze(q_j)
+
+    # Potential
+    phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
+    potentials = potentials.at[neigh_i].add(phi_contributions*q_j)
+    potentials = potentials.at[neigh_j].add(phi_contributions*q_i)
+    potential = potential + jnp.sum(potentials)
+
+    # Energy
+    energy += jnp.sum(phi_contributions*q_j*q_i)
+
+    return energy, potential, forces
 
 
 @jit
 def get_reaction_field_energy_and_forces(
+    forces: Array,
+    elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
+    config: Config,
+    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array] = None
+) -> Tuple[float, float, Array]:
+
+    energy = 0.0
+    potential = 0.0
+    forces = forces.at[...].set(0.0)
+    potentials = jnp.zeros((config.n_particles))
+
+    r_vec, r, neigh_i, neigh_j, q_i, q_j, _, _ = elec_param
+    r_vec, r, q_i, q_j, neigh_i, neigh_j = apply_cutoff_elec(r_vec, r, q_i, q_j, neigh_i, neigh_j, config.rc)
+
+    potential = vmap(value_and_grad(reaction_field_potential), (0, None, None, None, None))
+    phi_contributions, grads = potential(r_vec, config.epsilon_rf, config.dielectric_const, config.rc, config.elec_conversion)
+
+    # Potential
+    phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
+    potentials = potentials.at[neigh_i].add(phi_contributions*q_j)
+    potentials = potentials.at[neigh_j].add(phi_contributions*q_i)
+    potential = jnp.sum(potentials)
+
+    # Energy
+    energy = jnp.sum(phi_contributions*q_j*q_i)
+
+    # Forces
+    grads = jnp.where((neigh_i == -1)[:, None], jnp.zeros(3), grads)
+    q_i = q_i.reshape(len(q_i), 1)
+    q_j = q_j.reshape(len(q_j), 1)
+    forces = forces.at[neigh_i].add(-grads*q_i*q_j)
+    forces = forces.at[neigh_j].add(grads*q_i*q_j)
+
+    if excl_pair_param is not None:
+      energy, potential, forces = get_rf_excluded_pairs_energy_and_forces(
+          excl_pair_param,
+          config,
+          forces,
+          potentials,
+          energy,
+          potential
+      )
+
+    return energy, potential, forces
+
+
+@jit
+def get_reaction_field_energy_and_forces_npt(
+    forces: Array,
     elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config,
 ) -> Tuple[float, Array]:
 
-    num_particles = config.n_particles
     energy = 0.0
     potential = 0.0
-    forces = jnp.zeros((num_particles, 3))
-    potentials = jnp.zeros(num_particles)
+    forces = forces.at[...].set(0.0)
+    potentials = jnp.zeros_like(config.n_particles)
 
     r_vec, r, neigh_i, neigh_j, q_i, q_j, _, _ = elec_param
     r_vec, r, q_i, q_j, neigh_i, neigh_j = apply_cutoff_elec(r_vec, r, q_i, q_j, neigh_i, neigh_j, config.rc)
@@ -424,16 +526,19 @@ def get_reaction_field_energy_and_forces(
     potential = jnp.sum(potentials)
 
     # Energy
-    energy = jnp.sum(0.5*phi_contributions*q_j*q_i)
+    energy = jnp.sum(phi_contributions*q_j*q_i)
 
     # Forces
     grads = jnp.where((neigh_i == -1)[:, None], jnp.zeros(3), grads)
     q_i = q_i.reshape(len(q_i), 1)
     q_j = q_j.reshape(len(q_j), 1)
-    forces = forces.at[neigh_i].add(-grads*q_i*q_j*0.5)
-    forces = forces.at[neigh_j].add(grads*q_i*q_j*0.5)
+    forces = forces.at[neigh_i].add(-grads*q_i*q_j)
+    forces = forces.at[neigh_j].add(grads*q_i*q_j)
 
-    return potential, forces, energy
+    # Pressure terms
+    pressure = jnp.sum(-grads * r_vec, axis=0)
+
+    return energy, potential, forces, pressure
 
 
 @jit
@@ -584,7 +689,7 @@ def get_elec_energy_potential_and_forces(
     elec_potential, elec_energy, long_range_energy = get_elec_potential_and_energy(
         phi_q, phi_q_fourier, config
     )
-    return elec_energy+elec_energy_real, elec_potential+potential_real, elec_forces+elec_forces_real, elec_energy_real, long_range_energy
+    return elec_energy+elec_energy_real, elec_potential+potential_real, elec_forces+elec_forces_real#, elec_energy_real, long_range_energy
 
 
 @partial(jit, static_argnums=(3,))
