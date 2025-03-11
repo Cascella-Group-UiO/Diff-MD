@@ -16,7 +16,7 @@ class Parser:
             usage="""diff_md <command> [<args>]
 
 The available commands are:
-   mdrun      Run a HhPF-MD simulation
+   mdrun      Run a MD simulation
    optimize   Run a differentiable MD simulation to optimize target parameters
 """,
         )

@@ -69,12 +69,13 @@ class System:
         # Set fixed mass
         masses = 72.0
 
-        topol = get_topol(f"{dir}/{args.topol}", molecules, model)
+        # topol = get_topol(f"{dir}/{args.topol}", molecules, model)
         config, types = get_config(
             # fmt: off
             f"{dir}/{args.config}", names, types, masses, box, 
             charges, name_to_type, args.database,
         )
+        topol = get_topol(f"{dir}/{args.topol}", molecules, config, model)
 
         return cls(
             positions,
