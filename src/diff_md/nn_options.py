@@ -8,7 +8,7 @@ import numpy as np
 import optax
 
 from . import losses
-from .config import get_type_to_LJ, read_toml
+from .config import get_type_to_chi, read_toml
 from .logger import Logger
 from .models import GeneralModel
 

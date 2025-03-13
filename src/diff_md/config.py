@@ -78,7 +78,7 @@ class Config:
     )
     coulombtype: int = struct.field(pytree_node=False, default=0)
     elec_conversion: float = struct.field(
-        pytree_node=False, default=(138.935458 / 80.0)
+        pytree_node=False, default=(138.935458)
     )
 
     # NVT options
@@ -154,9 +154,14 @@ class Config:
         charges: Optional[Array],
         **args: Any,
     ) -> Self:
-        def elec_self_energy(charges, elec_conversion, sigma):
-            prefac = elec_conversion * jnp.sqrt(1.0 / (2.0 * jnp.pi * sigma * sigma))
-            return prefac * jnp.sum(charges * charges)
+        def elec_self_energy(charges, elec_conversion, coulombtype, sigma, erf, er, rc):
+            if coulombtype == 1:
+                prefac = elec_conversion * jnp.sqrt(1.0 / (2.0 * jnp.pi * sigma * sigma))
+                self_energy = prefac * jnp.sum(charges * charges)
+            elif coulombtype == 2:
+                prefac = elec_conversion * (3 * erf / (2 * erf + er)) / (2 * rc)
+                self_energy = prefac * 0.5 * (jnp.sum(charges * charges) - 1/erf * jnp.sum(charges) ** 2)
+            return self_energy   
 
         step = args["box_size"] / (2 * jnp.pi * args["mesh_size"])
         total_volume = jnp.prod(args["box_size"])
@@ -176,13 +181,22 @@ class Config:
         m_grid = jnp.meshgrid(kx, ky, kz, indexing="ij")
         # window = fourier_window(m_grid, args["sigma"])
         elec_conversion = 138.935458 / args["dielectric_const"]
+        args["elec_conversion"] = elec_conversion
         elec_const = 4.0 * jnp.pi * elec_conversion
         # elec_const = elec_transfer_constant(m_grid, elec_conversion)
         empty_mesh = jnp.zeros(args["mesh_size"])
 
         if charges is not None:
             # NOTE: charges could be not type dependant
-            self_energy = elec_self_energy(charges, elec_conversion, args["sigma"])
+            self_energy = elec_self_energy(
+                charges, 
+                elec_conversion,
+                args["coulombtype"], 
+                args["sigma"],
+                args["epsilon_rf"],
+                args["dielectric_const"],
+                args["rc"]
+            )
             type_to_charge_map = {}
             for i in range(types.shape[0]):
                 if types[i] not in type_to_charge_map.keys():
