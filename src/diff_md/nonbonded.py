@@ -395,11 +395,11 @@ def reaction_field_potential(
     krf = (erf - er) / (2*erf + er) / rc**3
     crf = 1/rc + krf*rc**2
 
-    return f * (1/r + krf*r**2-crf) / er
+    return f * (1/r - crf + krf*r**2)
 
 
 @jit
-def rf_potential_masked_pairs(
+def rf_potential_excluded_pairs(
     r_vec: Array,
     erf: float,
     er: float,
@@ -411,12 +411,7 @@ def rf_potential_masked_pairs(
     krf = (erf - er) / (2*erf + er) / rc**3
     crf = 1/rc + krf*rc**2
 
-    return f * (crf + krf*r**2) / er
-
-
-# Does this contribute to the potential or only energy?
-def rf_self(r, f, rc, erf, er, q):
-    return f * q**2 / (2 * er * rc) * (3 * erf / (2 * erf + er))
+    return f * (- crf + krf*r**2)
 
 
 @jit
@@ -425,9 +420,8 @@ def get_rf_excluded_pairs_energy_and_forces(
     config,
     forces,
     potentials,
-    energy,
-    potential    
-):
+    energy
+) -> Tuple[float, float, Array]: 
     r_vec, _, neigh_i, neigh_j, q_i, q_j, _, _ = excl_pair_param
 
     func = vmap(value_and_grad(reaction_field_potential), (0, None, None, None, None))
@@ -445,12 +439,12 @@ def get_rf_excluded_pairs_energy_and_forces(
     phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
     potentials = potentials.at[neigh_i].add(phi_contributions*q_j)
     potentials = potentials.at[neigh_j].add(phi_contributions*q_i)
-    potential = potential + jnp.sum(potentials)
+    potential = jnp.sum(potentials)
 
     # Energy
     energy += jnp.sum(phi_contributions*q_j*q_i)
 
-    return energy, potential, forces
+    return energy, potential, forces, grads, r_vec, q_i, q_j
 
 
 @jit
@@ -458,11 +452,10 @@ def get_reaction_field_energy_and_forces(
     forces: Array,
     elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config,
-    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array] = None
+    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array]
 ) -> Tuple[float, float, Array]:
 
     energy = 0.0
-    potential = 0.0
     forces = forces.at[...].set(0.0)
     potentials = jnp.zeros((config.n_particles))
 
@@ -489,16 +482,15 @@ def get_reaction_field_energy_and_forces(
     forces = forces.at[neigh_j].add(grads*q_i*q_j)
 
     if excl_pair_param is not None:
-      energy, potential, forces = get_rf_excluded_pairs_energy_and_forces(
+      energy, potential, forces, _, _, _, _ = get_rf_excluded_pairs_energy_and_forces(
           excl_pair_param,
           config,
           forces,
           potentials,
           energy,
-          potential
       )
 
-    return energy, potential, forces
+    return energy-config.self_energy, potential, forces
 
 
 @jit
@@ -506,18 +498,18 @@ def get_reaction_field_energy_and_forces_npt(
     forces: Array,
     elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config,
-) -> Tuple[float, Array]:
+    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array]
+) -> Tuple[float, float, Array]:
 
     energy = 0.0
-    potential = 0.0
     forces = forces.at[...].set(0.0)
-    potentials = jnp.zeros_like(config.n_particles)
+    potentials = jnp.zeros((config.n_particles))
 
     r_vec, r, neigh_i, neigh_j, q_i, q_j, _, _ = elec_param
     r_vec, r, q_i, q_j, neigh_i, neigh_j = apply_cutoff_elec(r_vec, r, q_i, q_j, neigh_i, neigh_j, config.rc)
 
-    potential = vmap(value_and_grad(reaction_field_potential), (0, None, None, None, None))
-    phi_contributions, grads = potential(r_vec, config.erf, config.er, config.rc, config.elec_conversion)
+    func_grad = vmap(value_and_grad(reaction_field_potential), (0, None, None, None, None))
+    phi_contributions, grads = func_grad(r_vec, config.epsilon_rf, config.dielectric_const, config.rc, config.elec_conversion)
 
     # Potential
     phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
@@ -536,9 +528,63 @@ def get_reaction_field_energy_and_forces_npt(
     forces = forces.at[neigh_j].add(grads*q_i*q_j)
 
     # Pressure terms
-    pressure = jnp.sum(-grads * r_vec, axis=0)
+    pressure = jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
 
-    return energy, potential, forces, pressure
+    if excl_pair_param is not None:
+      energy, potential, forces, grads, r_vec, q_i, q_j = get_rf_excluded_pairs_energy_and_forces(
+          excl_pair_param,
+          config,
+          forces,
+          potentials,
+          energy,
+      )
+      pressure += jnp.sum(-grads*q_i*q_j* r_vec, axis=0)
+
+    return energy-config.self_energy, potential, forces, pressure
+
+
+@jit
+def ewald_rec_intramol(    
+    r_vec: Array,
+    alpha: float,
+    f: float,
+):
+    r = jnp.linalg.norm(r_vec, axis=0)
+    return - f * lax.erf(jnp.sqrt(alpha) * r) / r
+    
+
+@jit
+def ewald_masked_pairs(
+    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
+    config: Config,
+    forces: Array,
+    potentials: Array,
+    energy: float,
+) -> Tuple[float, float, Array]:
+
+    r_vec, _, neigh_i, neigh_j, q_i, q_j, _, _ = excl_pair_param
+
+    func = vmap(value_and_grad(ewald_rec_intramol), (0, None, None))
+    phi_contributions, grads = func(r_vec, 1/(2*config.sigma**2), config.elec_conversion)
+
+    # Forces
+    grads = jnp.where((neigh_i == -1)[:, None], jnp.zeros(3), grads)
+    forces = forces.at[neigh_i].add(-grads*q_i*q_j)
+    forces = forces.at[neigh_j].add(grads*q_i*q_j)
+
+    q_i = jnp.squeeze(q_i)
+    q_j = jnp.squeeze(q_j)
+    
+    # Potential
+    phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
+    potentials = potentials.at[neigh_i].add(phi_contributions*q_j)
+    potentials = potentials.at[neigh_j].add(phi_contributions*q_i)
+    potential = jnp.sum(potentials)
+
+    # Energy
+    energy += jnp.sum(phi_contributions*q_j*q_i)
+
+    return energy, potential, forces, grads, r_vec, q_i, q_j
 
 
 @jit
@@ -555,13 +601,13 @@ def phi_real_space(
 def ewald_real_space(
     elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config,
+    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array]
 ) -> Tuple[float, Array]:
 
     alpha = 1/(2*config.sigma**2)
 
     num_particles = config.n_particles
     energy = 0.0
-    potential = 0.0
     forces = jnp.zeros((num_particles, 3))
     potentials = jnp.zeros(num_particles)
 
@@ -587,6 +633,15 @@ def ewald_real_space(
     forces = forces.at[neigh_i].add(-grads*q_i*q_j)
     forces = forces.at[neigh_j].add(grads*q_i*q_j)
 
+    if excl_pair_param is not None:
+        energy, potential, forces, _, _, _, _ = ewald_masked_pairs(
+            excl_pair_param,
+            config,
+            forces,
+            potentials,
+            energy,
+        )
+
     return energy, forces, potential
 
 
@@ -594,6 +649,7 @@ def ewald_real_space(
 def ewald_real_space_npt(
     elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config,
+    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array]
 ) -> Tuple[float, Array]:
 
     alpha = 1/(2*config.sigma**2)
@@ -629,6 +685,16 @@ def ewald_real_space_npt(
     # Pressure
     pressure = jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
 
+    if excl_pair_param is not None:
+        energy, potential, forces, grads, r_vec, q_i, q_j = ewald_masked_pairs(
+            excl_pair_param,
+            config,
+            forces,
+            potentials,
+            energy,
+        )
+        pressure += jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
+      
     return energy, forces, potential, pressure
 
 
@@ -680,12 +746,13 @@ def get_elec_energy_potential_and_forces(
     elec_fog: Array,
     charges: Array,
     config: Config,
-    elec_param: Tuple[Array, Array, Array, Array, Array, Array]
+    elec_param: Tuple[Array, Array, Array, Array, Array, Array],
+    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array]
 ) -> Tuple[Array, Array, Array]:
     phi_q = cic_paint(positions, config, mass=charges)
     phi_q_fourier = filter_density(phi_q, config)
     elec_forces = get_elec_forces(elec_fog, phi_q_fourier, positions, charges, config)
-    elec_energy_real, elec_forces_real, potential_real = ewald_real_space(elec_param, config)
+    elec_energy_real, elec_forces_real, potential_real = ewald_real_space(elec_param, config, excl_pair_param)
     elec_potential, elec_energy, long_range_energy = get_elec_potential_and_energy(
         phi_q, phi_q_fourier, config
     )

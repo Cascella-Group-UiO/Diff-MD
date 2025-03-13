@@ -126,6 +126,8 @@ def main(args):
                 config.epsl_table,
                 system.types,
             )
+        else:
+            excl_pair_params = None
     else:
         pair_params = apply_nlist(
             neigh_i, 
@@ -148,7 +150,7 @@ def main(args):
         if config.coulombtype == 1:
             elec_fog = jnp.zeros((3, *config.mesh_size))
             elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(
-                positions, elec_fog, system.charges, config, pair_params
+                positions, elec_fog, system.charges, config, pair_params, excl_pair_params
             )
         elif config.coulombtype == 2:
             elec_energy, elec_potential, elec_forces = get_reaction_field_energy_and_forces(
@@ -439,7 +441,7 @@ def main(args):
                         elec_potential,
                         elec_forces,
                     ) = get_elec_energy_potential_and_forces(
-                        positions, elec_fog, system.charges, config, pair_params
+                        positions, elec_fog, system.charges, config, pair_params, excl_pair_params
                     )
                 elif config.coulombtype == 2:
                     (
@@ -448,7 +450,7 @@ def main(args):
                         elec_forces,
                         ele_pressure
                     ) = get_reaction_field_energy_and_forces_npt(
-                        elec_forces, pair_params, config
+                        elec_forces, pair_params, config, excl_pair_params
                     )
 
             (
@@ -531,7 +533,7 @@ def main(args):
                     elec_potential,
                     elec_forces,
                 ) = get_elec_energy_potential_and_forces(
-                    positions, elec_fog, system.charges, config, pair_params
+                    positions, elec_fog, system.charges, config, pair_params, excl_pair_params
                 )
             elif config.coulombtype == 2:
                 (
@@ -643,7 +645,7 @@ def main(args):
                     elec_potential,
                     elec_forces,
                 ) = get_elec_energy_potential_and_forces(
-                    positions, elec_fog, system.charges, config, pair_params
+                    positions, elec_fog, system.charges, config, pair_params, excl_pair_params
                 )
             elif config.coulombtype == 2:
                 (

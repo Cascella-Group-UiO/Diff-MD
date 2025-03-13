@@ -125,6 +125,7 @@ def apply_nlist_elec(
 
     return r_vec, r, neigh_i, neigh_j, q_i, q_j, s_ij, e_ij
 
+# NOTE: Try to jit this function
 # @jit
 def exclude_bonded_neighbors(neigh_i, neigh_j, bonded_i, bonded_j):
     bonded_pairs = jnp.vstack((jnp.column_stack((bonded_i, bonded_j)),
