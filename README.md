@@ -34,7 +34,8 @@ Instead, to optimize force field parameters you can run
 ```terminal
 cd examples
 sed -i -e s/10000/200/ dppc/options.toml # Use smaller number of steps when training
-diff_md optimize -f input.h5 -p topol.toml -c options.toml -o dppc/train -m dppc/training.toml -v
+destdir=`pwd`
+diff_md optimize -f input.h5 -p topol.toml -c options.toml -o dppc/train -m dppc/training.toml -d $destdir -v
 ```
 ## Optimization
 Optimization requires a bit more work, so carefully check `dppc/training.toml` for all the available options.
