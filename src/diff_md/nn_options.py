@@ -8,7 +8,7 @@ import numpy as np
 import optax
 
 from . import losses
-from .config import get_type_to_chi, read_toml
+from .config import get_type_to_LJ, read_toml
 from .logger import Logger
 from .models import GeneralModel
 
@@ -65,9 +65,9 @@ def get_training_parameters(
 
     name_to_type = {}
     model_dict = toml_config["nn"].pop("model")
-    if "chi" in model_dict:
+    if "LJ_param" in model_dict:
         names = []
-        for row in model_dict["chi"]:
+        for row in model_dict["LJ_param"]:
             names += row[:2]
 
         names = np.array(names)
@@ -78,35 +78,35 @@ def get_training_parameters(
         name_to_type = {name: type for type, name in enumerate(unique_names)}
 
         model_dict["n_types"] = n_types
-        model_dict["type_to_chi"] = (ttc := get_type_to_chi(n_types))
+        model_dict["type_to_LJ"] = (ttlj := get_type_to_LJ(n_types))
 
         start_value = {}
-        chi_constraints = {}
-        chi = np.zeros((n_types, n_types))
-        for pair in model_dict["chi"]:
+        epsl_constraints = {}
+        epsl = np.zeros((n_types, n_types))
+        for pair in model_dict["LJ_param"]:
             type_0, type_1 = sorted((name_to_type[pair[0]], name_to_type[pair[1]]))
-            val = pair[2]
-            chi[type_0, type_1] = val
+            val = pair[3]
+            epsl[type_0, type_1] = val
 
-            if len(pair) > 3:
-                pair_idx = ttc[type_0, type_1]
+            if len(pair) > 4:
+                pair_idx = ttlj[type_0, type_1]
 
-                # train only these chi pairs
-                if "on" in pair[3:]:
+                # train only these pairs
+                if "on" in pair[4:]:
                     start_value[pair_idx] = val
 
-                # constrain these chi pairs
-                if "cs" in pair[3:]:
-                    chi_constraints[pair_idx] = val
+                # constrain these pairs
+                if "cs" in pair[4:]:
+                    epsl_constraints[pair_idx] = val
 
         if start_value:
-            model_dict["type_to_chi"] = jnp.array(list(start_value.keys()))
-            model_dict["chi"] = jnp.array(list(start_value.values()), dtype=jnp.float_)
+            model_dict["type_to_LJ"] = jnp.array(list(start_value.keys()))
+            model_dict["LJ_param"] = jnp.array(list(start_value.values()), dtype=jnp.float_)
         else:
-            model_dict["chi"] = jnp.array(chi[np.triu_indices(n_types)])
+            model_dict["LJ_param"] = jnp.array(epsl[np.triu_indices(n_types)])
 
-        if chi_constraints:
-            model_dict["chi_constraints"] = chi_constraints
+        if epsl_constraints:
+            model_dict["epsl_constraints"] = epsl_constraints
 
     if "bonds" in model_dict:
         Logger.rank0.warning(

@@ -25,7 +25,7 @@ def get_chi(
     type_mask = {}
     chi_constraint = {}
     chi = jnp.zeros((config.n_types, config.n_types))
-
+    
     # Preprocessing when only specifying a subset of chi values to train
     if model.type_to_chi.ndim == 1:
         dummy_chi = config.chi
@@ -52,6 +52,37 @@ def get_chi(
 
     chi = chi.reshape(config.n_types, config.n_types, 1, 1, 1)
     return chi, chi_constraint, type_mask
+
+
+def get_LJ_param(
+    model: GeneralModel, config: Config
+) -> Tuple[Array, dict[int, Array]]:
+    assert model.LJ_param is not None, "GeneralModel.chi should not be 'None' here."
+
+    constraint = {}
+    epsl = jnp.zeros((config.n_types, config.n_types)) 
+
+    # Preprocessing when only specifying a subset of values to train
+    if model.type_to_LJ.ndim == 1:
+        dummy_lj = config.LJ_param 
+        for ttc, c in zip(model.type_to_LJ, model.LJ_param):
+            if ttc in config.type_to_LJ:
+                dummy_lj[ttc] = c
+
+    for i, ti in enumerate(config.unique_types):
+        if model.type_to_LJ.ndim == 1:
+            epsl = epsl.at[i].set(dummy_lj[config.type_to_LJ[i]])
+        else:
+            epsl = epsl.at[i].set(model.LJ_param[model.type_to_LJ[ti, config.unique_types]])
+
+    # Parse constraints
+    for ttc, val in model.epsl_constraints.items():
+        if ttc in config.type_to_LJ:
+            constraint[ttc] = val
+
+    # epsl = jnp.array(epsl + epsl.T - jnp.diag(jnp.diag(epsl)))
+
+    return epsl, constraint
 
 
 @jit
@@ -167,11 +198,11 @@ def density_and_apl(
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
     types = jnp.array(system.types)
 
-    chi, chi_constraint, type_mask = get_chi(model, types, system.config)
+    epsl_table, chi_constraint = get_LJ_param(model, system.config)
     trj, key, config = simulator(
         # fmt: off
-        model, system.positions, system.velocities, type_mask, system.charges,
-        chi, key, system.topol, system.config, start_temperature
+        model, system.positions, system.velocities, types, system.charges,
+        epsl_table, key, system.topol, system.config, start_temperature
     )
 
     comm_size = comm.Get_size()
@@ -193,7 +224,7 @@ def density_and_apl(
         # Add frame area per lipid
         xy_area = box_x * box_y
         scaling_factor = xy_area * z_length / n_bins
-        xy_apl += xy_area
+        xy_apl += xy_area # NOTE: Why?
 
         fixed_sel = jnp.where(
             types == com_type, size=config.particle_per_type[com_type]
@@ -226,11 +257,11 @@ def density_and_apl(
 
     # Error from chi constraints
     if constraint:
-        error += constraint(model.chi, k_constraint, chi_constraint)
+        error += constraint(model.LJ_param, k_constraint, chi_constraint)
 
     # Prevent chi from reaching unphysical values (hopefully)
     if boundary:
-        error += boundary_constraint(chi, boundary)
+        error += boundary_constraint(epsl_table, boundary)
 
     return error, (
         {"density": kde_density, "area per lipid": mean_apl},
@@ -238,3 +269,15 @@ def density_and_apl(
         key,
         config,
     )
+
+
+def thickness_and_zeta_potential(
+    model, system, key, start_temperature, comm,
+):
+    return NotImplementedError
+
+
+def radius_of_gyration_and_end_to_end_distance(
+    model, system, key, start_temperature, comm,
+):
+    return NotImplementedError

@@ -14,7 +14,7 @@ from mpi4py import MPI
 from .file_io import OutDataset, save_params, store_static, write_full_trajectory
 from .input_parser import System
 from .logger import Logger
-from .losses import get_chi
+from .losses import get_chi, get_LJ_param
 from .nn_options import get_training_parameters
 from .simulate import simulator
 
@@ -159,7 +159,7 @@ def main(args, comm):
     # Run training loop
     for epoch in range(start_epoch, start_epoch + nn_options.n_epochs):
         epoch_loss = 0
-
+        
         destdir = f"{args.destdir}/step_{epoch}"
         params_file = f"{destdir}/training.toml"
         if rank == 0:
@@ -179,11 +179,12 @@ def main(args, comm):
 
             if nn_options.equilibration:
                 # Restarts from initial positions
-                chi, _, type_mask = get_chi(params, system.types, system.config)
+                # chi, _, type_mask = get_chi(params, system.types, system.config)
+                epsl, _ = get_LJ_param(params, system.config)
                 trj, key, config = simulator(
                     # fmt: off
-                    params, start_pos[i], start_vel[i], type_mask, system.charges,
-                    chi, key, system.topol, start_config[i], start_temperature, nn_options.equilibration
+                    params, start_pos[i], start_vel[i], system.types, system.charges,
+                    epsl, key, system.topol, start_config[i], start_temperature, nn_options.equilibration
                 )
                 system.positions, system.velocities = (
                     trj["positions"][-1],
