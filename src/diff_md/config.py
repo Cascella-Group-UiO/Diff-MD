@@ -341,9 +341,8 @@ def get_config(
         else:
             config_dict[k] = v
 
-
     for k, v in config_dict.items():
-        if k == "LJ_param":
+        if k == "LJ_param": 
             sgm_dict = {}
             epsl_dict = {}
 
@@ -471,14 +470,14 @@ def get_config(
             err_str = "Charged particles are present in the system but coulombtype = no. Electrostatic interactions will not be calculated."
             Logger.rank0.error(err_str)
 
-    # if charges is not None:
-    #     if not jnp.isclose(tot_charge := jnp.sum(charges), 0):
-    #         err_str = f"The sum of all charges should be equal to zero to avoid artifacts. Got {tot_charge}."
-    #         Logger.rank0.error(err_str)
-    #         exit()
-    #     config_dict["coulombtype"] = 1
-    # else:
-    #     config_dict["coulombtype"] = 0
+    if charges is not None:
+        if not jnp.isclose(tot_charge := jnp.sum(charges), 0):
+            err_str = f"The sum of all charges should be equal to zero to avoid artifacts. Got {tot_charge}."
+            Logger.rank0.error(err_str)
+            exit()
+        config_dict["coulombtype"] = 1
+    else:
+        config_dict["coulombtype"] = 0
 
     # HyMD options not used in Diff-MD
     for opt in ("integrator", "hamiltonian"):

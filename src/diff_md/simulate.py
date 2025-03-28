@@ -11,28 +11,33 @@ from .force import (
     get_protein_dipoles,
     redistribute_dipole_forces,
 )
-from .integrator import integrate_position, integrate_velocity
+from .integrator import integrate_position, integrate_velocity, zero_forces
 from .nonbonded import (
     get_dipole_forces,
     get_elec_energy_potential_and_forces,
-    get_field_energy_and_forces,
-    get_field_energy_and_forces_npt,
+    get_LJ_energy_and_forces, get_LJ_energy_and_forces_npt,
+    get_reaction_field_energy_and_forces, get_reaction_field_energy_and_forces_npt
 )
 from .thermostat import (
     cancel_com_momentum,
     csvr_thermostat,
-    generate_initial_velocities,
+    generate_initial_velocities
 )
-
+from .neighbor_list import (
+    apply_nlist, 
+    apply_nlist_elec, 
+    exclude_bonded_neighbors
+)
+from vesin import NeighborList
 
 # @jit # takes too much time and memory to compile, at least on cpu
 def simulator(
     model,
     positions,
     velocities,
-    type_mask,
+    types,
     charges,
-    chi,
+    epsl_table,
     key,
     topol,
     config,
@@ -63,24 +68,74 @@ def simulator(
     improper_forces = jnp.zeros_like(positions)
 
     # Init non-bonded forces
-    field_fog = jnp.zeros((config.n_types, 3, *config.empty_mesh.shape))
-    field_forces = jnp.zeros_like(positions)
+    LJ_forces = jnp.zeros_like(positions)
     elec_forces = jnp.zeros_like(positions)
     elec_potential = jnp.zeros(config.empty_mesh.shape)
     reconstr_forces = jnp.zeros_like(positions)
 
     phi = jnp.zeros((config.n_types, *config.empty_mesh.shape))
 
+    restr_atoms = topol.restraints
+
+    # Make neighbor list
+    rv = config.rv 
+    ns_nlist = config.ns_nlist 
+    nlist_calc = NeighborList(cutoff=rv, full_list=False)
+    neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
+    max_neighbors = len(neigh_i) + config.n_particles*5
+    neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+    neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+    neigh_i = neigh_i.astype(jnp.int32)
+    neigh_j = neigh_j.astype(jnp.int32)
+
+    if topol.excluded_pairs is not None:
+        neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
+
+    # NOTE: This can probably be cleaned up
+    if config.coulombtype and charges is not None:
+        pair_params = apply_nlist_elec(
+            neigh_i, 
+            neigh_j, 
+            positions, 
+            charges, 
+            config.box_size, 
+            config.sgm_table, 
+            epsl_table, 
+            types
+        )
+        if topol.excluded_pairs is not None:
+            excl_pair_params = apply_nlist_elec(
+                topol.excluded_pairs[0],
+                topol.excluded_pairs[1],
+                positions,
+                charges,
+                config.box_size,
+                config.sgm_table,
+                epsl_table,
+                types,
+            )
+        else:
+            excl_pair_params = None
+    else:
+        pair_params = apply_nlist(
+            neigh_i, 
+            neigh_j, 
+            positions, 
+            config.box_size, 
+            config.sgm_table, 
+            epsl_table, 
+            types
+        )
+
     # Init energies
-    bond_energy, angle_energy, dihedral_energy, field_energy, elec_energy = 0, 0, 0, 0, 0  # fmt:skip
-    bond_pressure, angle_pressure, dihedral_pressure, field_pressure = 0, 0, 0, 0
+    bond_energy, angle_energy, dihedral_energy, LJ_energy, elec_energy = 0, 0, 0, 0, 0  # fmt:skip
+    bond_pressure, angle_pressure, dihedral_pressure, LJ_pressure = 0, 0, 0, 0
 
     # Calculate initial bonded energies and forces
     if topol.bonds:
         bond_energy, bond_forces, bond_pressure = get_bond_energy_and_forces(
             bond_forces, positions, config.box_size, *topol.bonds_2
         )
-
     if topol.angles:
         angle_energy, angle_forces, angle_pressure = get_angle_energy_and_forces(
             angle_forces, positions, config.box_size, *topol.bonds_3
@@ -116,7 +171,6 @@ def simulator(
         reconstr_forces = redistribute_dipole_forces(
             reconstr_forces, dip_forces, transfer_matrices, *topol.bonds_d
         )
-
     if topol.impropers:
         improper_energy, improper_forces = get_impropers_energy_and_forces(
             improper_forces, positions, config.box_size, *topol.bonds_impr
@@ -124,16 +178,25 @@ def simulator(
         dihedral_energy += improper_energy
 
     # Calculate initial electrostatic energy and forces
-    if config.coulombtype:
-        elec_fog = jnp.zeros((3, *config.empty_mesh.shape))
-        elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(
-            positions, elec_fog, charges, config
-        )
+    if charges is not None:
+        if config.coulombtype == 1:
+            elec_fog = jnp.zeros((3, *config.mesh_size))
+            elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(
+                positions, elec_fog, charges, config, pair_params, excl_pair_params
+            )
+        elif config.coulombtype == 2:
+            elec_energy, elec_potential, elec_forces = get_reaction_field_energy_and_forces(
+                elec_forces, pair_params, config, excl_pair_params
+            )    
 
     # Calculate initial non bonded energy and forces
-    field_energy, field_forces = get_field_energy_and_forces(
-        positions, phi, field_forces, field_fog, chi, type_mask, config
-    )
+    LJ_energy, LJ_forces = get_LJ_energy_and_forces(
+            LJ_forces, pair_params, config
+        )
+        
+    # field_energy, field_forces = get_field_energy_and_forces(
+    #     positions, phi, field_forces, field_fog, chi, type_mask, config
+    # )
 
     if config.barostat:
         ctype = jnp.complex128 if phi.dtype == "float64" else jnp.complex64
@@ -149,13 +212,14 @@ def simulator(
         trj["box"] = [config.box_size]
         trj["dihedral energy"] = [dihedral_energy]
         trj["elec energy"] = [elec_energy]
-        trj["field energy"] = [field_energy]
+        trj["LJ energy"] = [LJ_energy]
+
         trj["forces"] = [
             bond_forces
             + angle_forces
             + dihedral_forces
             + improper_forces
-            + field_forces
+            + LJ_forces
             + reconstr_forces
             + elec_forces
         ]
@@ -168,14 +232,35 @@ def simulator(
     n_steps = equilibration if equilibration else config.n_steps
     for step in range(1, n_steps + 1):
         # First outer rRESPA velocity step
+        if step%ns_nlist == 0:
+            neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
+            neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+            neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+            neigh_i = neigh_i.astype(jnp.int32)
+            neigh_j = neigh_j.astype(jnp.int32)
+
+            if topol.excluded_pairs is not None:
+                neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
+
+        if len(restr_atoms) > 0 :
+            LJ_forces = zero_forces(LJ_forces, restr_atoms)
+            elec_forces = zero_forces(elec_forces, restr_atoms)
+            reconstructed_forces = zero_forces(reconstructed_forces, restr_atoms)
+
         velocities = integrate_velocity(
             velocities,
-            (field_forces + elec_forces + reconstr_forces) / config.mass,
+            (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
 
         # Inner rRESPA steps
         for _ in range(config.respa_inner):
+            if len(restr_atoms) > 0 :
+                bond_forces = zero_forces(bond_forces, restr_atoms)
+                angle_forces = zero_forces(angle_forces, restr_atoms)
+                dihedral_forces = zero_forces(dihedral_forces, restr_atoms)
+                improper_forces = zero_forces(improper_forces, restr_atoms)
+
             velocities = integrate_velocity(
                 velocities,
                 (bond_forces + angle_forces + dihedral_forces + improper_forces)
@@ -230,40 +315,75 @@ def simulator(
         #     dihedral_phi = jnp.append(dihedral_phi, phi)
         #     dihedral_theta = jnp.append(dihedral_theta, theta)
 
+        # Second rRESPA velocity step
         if config.barostat:
             # Get electrostatic potential
-            if config.coulombtype:
-                (
-                    elec_energy,
-                    elec_potential,
-                    elec_forces,
-                ) = get_elec_energy_potential_and_forces(
-                    positions, elec_fog, charges, config
+            if config.coulombtype and charges is not None:
+                pair_params = apply_nlist_elec(
+                    neigh_i, 
+                    neigh_j, 
+                    positions, 
+                    charges, 
+                    config.box_size, 
+                    config.sgm_table, 
+                    epsl_table, 
+                    types
                 )
+                if topol.excluded_pairs is not None:
+                    excl_pair_params = apply_nlist_elec(
+                        topol.excluded_pairs[0],
+                        topol.excluded_pairs[1],
+                        positions,
+                        charges,
+                        config.box_size,
+                        config.sgm_table,
+                        epsl_table,
+                        types,
+                    )
+            else:
+                pair_params = apply_nlist(
+                    neigh_i, 
+                    neigh_j, 
+                    positions, 
+                    config.box_size, 
+                    config.sgm_table, 
+                    epsl_table, 
+                    types
+                )            
 
-            # Get field pressure terms
+            if charges is not None:
+                if config.coulombtype == 1:
+                    (
+                        elec_energy,
+                        elec_potential,
+                        elec_forces,
+                    ) = get_elec_energy_potential_and_forces(
+                        positions, elec_fog, charges, config, pair_params, excl_pair_params
+                    )
+                elif config.coulombtype == 2:
+                    (
+                        elec_energy, 
+                        elec_potential, 
+                        elec_forces,
+                        ele_pressure
+                    ) = get_reaction_field_energy_and_forces_npt(
+                        elec_forces, pair_params, config, excl_pair_params
+                    )
+
             (
-                field_energy,
-                field_forces,
-                field_pressure,
-            ) = get_field_energy_and_forces_npt(
-                positions,
-                phi,
-                phi_fourier,
-                field_forces,
-                field_fog,
-                chi,
-                type_mask,
-                elec_potential,
-                config,
-            )
+                LJ_energy,
+                LJ_forces,
+                LJ_pressure
+            ) = get_LJ_energy_and_forces_npt(
+                LJ_forces, pair_params, config
+            )            
 
             # Calculate pressure
             kinetic_energy = 0.5 * config.mass * jnp.sum(velocities**2)
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             pressure = (
                 kinetic_pressure
-                + (field_pressure - field_energy - elec_energy)
+                + (LJ_pressure - LJ_energy - elec_energy) # 
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
@@ -285,27 +405,61 @@ def simulator(
                     key,
                 )
 
+            if config.coulombtype and charges is not None:
+                pair_params = apply_nlist_elec(
+                    neigh_i, 
+                    neigh_j, 
+                    positions, 
+                    charges, 
+                    config.box_size, 
+                    config.sgm_table, 
+                    epsl_table, 
+                    types
+                )
+                if topol.excluded_pairs is not None:
+                    excl_pair_params = apply_nlist_elec(
+                        topol.excluded_pairs[0],
+                        topol.excluded_pairs[1],
+                        positions,
+                        charges,
+                        config.box_size,
+                        config.sgm_table,
+                        epsl_table,
+                        types,
+                    )
+            else:
+                pair_params = apply_nlist(
+                    neigh_i, 
+                    neigh_j, 
+                    positions, 
+                    config.box_size, 
+                    config.sgm_table, 
+                    epsl_table, 
+                    types
+                )      
+        
         # Recompute after barostat
-        field_energy, field_forces = get_field_energy_and_forces(
-            positions, phi, field_forces, field_fog, chi, type_mask, config
+        LJ_energy, LJ_forces = get_LJ_energy_and_forces(
+            LJ_forces, pair_params, config 
         )
 
-        if config.coulombtype == 1:
-            (
-                elec_energy,
-                elec_potential,
-                elec_forces,
-            ) = get_elec_energy_potential_and_forces(
-                positions, elec_fog, charges, config
-            )
-        # elif config.coulombtype == 2:
-        #     (
-        #         elec_energy,
-        #         elec_potential,
-        #         elec_forces,
-        #     ) = get_elec_energy_potential_and_forces(
-        #         positions, elec_fog, charges, config
-        #     )
+        if charges is not None:
+            if config.coulombtype == 1:
+                (
+                    elec_energy,
+                    elec_potential,
+                    elec_forces,
+                ) = get_elec_energy_potential_and_forces(
+                    positions, elec_fog, charges, config, pair_params, excl_pair_params
+                )
+            elif config.coulombtype == 2:
+                (
+                    elec_energy, 
+                    elec_potential, 
+                    elec_forces,
+                ) = get_reaction_field_energy_and_forces(
+                    elec_forces, pair_params, config, excl_pair_params
+                )
 
         if topol.dihedrals:
             transfer_matrices, dip_positions = get_protein_dipoles(
@@ -321,7 +475,7 @@ def simulator(
         # Second outer rRESPA velocity step
         velocities = integrate_velocity(
             velocities,
-            (field_forces + elec_forces + reconstr_forces) / config.mass,
+            (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
 
@@ -345,12 +499,12 @@ def simulator(
                 trj["box"].append(config.box_size)
                 trj["dihedral energy"].append(dihedral_energy)
                 trj["elec energy"].append(elec_energy)
-                trj["field energy"].append(field_energy)
+                trj["LJ energy"].append(LJ_energy)
                 trj["forces"].append(
                     bond_forces
                     + angle_forces
                     + dihedral_forces
-                    + field_forces
+                    + LJ_forces
                     + reconstr_forces
                     + elec_forces
                 )

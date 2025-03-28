@@ -31,9 +31,11 @@ from .thermostat import (
     csvr_thermostat,
     generate_initial_velocities,
 )
-
-from .neighbor_list import apply_nlist, apply_nlist_elec, exclude_bonded_neighbors
-
+from .neighbor_list import (
+    apply_nlist, 
+    apply_nlist_elec, 
+    exclude_bonded_neighbors
+)
 
 # pyright: reportUnboundVariable=none
 def main(args):
@@ -63,7 +65,6 @@ def main(args):
         velocities = cancel_com_momentum(velocities, config)
 
     # Initialize forces
-    field_forces = jnp.zeros_like(positions)
     LJ_forces = jnp.zeros_like(positions)
     bond_forces = jnp.zeros_like(positions)
     angle_forces = jnp.zeros_like(positions)
@@ -83,13 +84,6 @@ def main(args):
     # Initialize pressure
     bond_pressure, angle_pressure, dihedral_pressure, field_pressure = 0, 0, 0, 0
 
-    # Initialize field stuff
-    # fog = force on grid
-    field_fog = jnp.zeros((config.n_types, 3, *(config.mesh_size)))
-    phi = jnp.zeros((config.n_types, *config.mesh_size))
-    chi = jnp.zeros((config.n_types, config.n_types))
-    elec_potential = jnp.zeros(config.mesh_size)
-
     # Make neighbor list
     rv = config.rv 
     ns_nlist = config.ns_nlist 
@@ -104,6 +98,7 @@ def main(args):
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
 
+    # NOTE: This can probably be cleaned up
     if config.coulombtype and system.charges is not None:
         pair_params = apply_nlist_elec(
             neigh_i, 
@@ -156,6 +151,7 @@ def main(args):
             elec_energy, elec_potential, elec_forces = get_reaction_field_energy_and_forces(
                 elec_forces, pair_params, config, excl_pair_params
             )
+                        
     if topol.bonds:
         bond_energy, bond_forces, bond_pressure = get_bond_energy_and_forces(
             bond_forces, positions, config.box_size, *topol.bonds_2
@@ -337,7 +333,7 @@ def main(args):
         if len(restr_atoms) > 0 :
             LJ_forces = zero_forces(LJ_forces, restr_atoms)
             elec_forces = zero_forces(elec_forces, restr_atoms)
-            reconstructed_forces = zero_forces(reconstructed_forces, restr_atoms)
+            # reconstructed_forces = zero_forces(reconstructed_forces, restr_atoms)
 
         velocities = integrate_velocity(
             velocities,

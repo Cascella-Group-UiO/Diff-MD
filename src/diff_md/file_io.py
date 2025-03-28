@@ -38,25 +38,25 @@ class OutDataset:
 
 
 def save_params(filename: str, toml: dict[str, Any], params: GeneralModel) -> None:
-    assert params.chi is not None
+    assert params.LJ_param is not None
 
     with open(filename, "w") as outfile:
-        num_pairs = len(toml["nn"]["model"]["chi"])
-        num_params = len(params.chi)
-        if num_pairs >= num_params:
+        num_pairs = len(toml["nn"]["model"]["LJ_param"])
+        num_params = len(params.LJ_param)
+        if num_pairs > num_params: 
             idx = []
-            for i, pair in enumerate(toml["nn"]["model"]["chi"]):
-                if len(pair) > 3 and isinstance(pair[3], str):
+            for i, pair in enumerate(toml["nn"]["model"]["LJ_param"]):
+                if len(pair) > 4 and isinstance(pair[4], str):
                     idx.append(i)
             assert len(idx) == num_params
-            for i, chi in zip(idx, params.chi):
-                toml["nn"]["model"]["chi"][i][2] = float(chi)
+            for i, LJ_param in zip(idx, params.LJ_param):
+                toml["nn"]["model"]["LJ_param"][i][3] = float(LJ_param)
         else:
-            idx = np.triu_indices(params.n_types, k=1)
-            idx = params.type_to_chi[idx]
-            assert len(params.chi[idx]) == num_pairs
-            for i, chi in enumerate(params.chi[idx]):
-                toml["nn"]["model"]["chi"][i][2] = float(chi)
+            idx = np.triu_indices(params.n_types)
+            idx = params.type_to_LJ[idx] 
+            assert len(params.LJ_param[idx]) == num_pairs
+            for i, epsl in enumerate(params.LJ_param[idx]):
+                toml["nn"]["model"]["LJ_param"][i][3] = float(epsl)
         tomlkit.dump(toml, outfile)
 
 
