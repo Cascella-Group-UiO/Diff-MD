@@ -34,7 +34,8 @@ from .thermostat import (
 from .neighbor_list import (
     apply_nlist, 
     apply_nlist_elec, 
-    exclude_bonded_neighbors
+    exclude_bonded_neighbors,
+    nlist
 )
 
 # pyright: reportUnboundVariable=none
@@ -95,6 +96,15 @@ def main(args):
     neigh_i = neigh_i.astype(jnp.int32)
     neigh_j = neigh_j.astype(jnp.int32)
 
+    # dens = config.n_particles / config.box_size.prod()
+    # max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
+    # max_neighbors += 10000 # Add a buffer for safety
+
+    # # Inicialize neighbor list
+    # neigh_i = jnp.zeros(max_neighbors, dtype=int)
+    # neigh_j = jnp.zeros(max_neighbors, dtype=int)
+    # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
 
@@ -134,12 +144,6 @@ def main(args):
             system.types
         )
 
-    # Probably not needed. Will try to just use the config.sigma, config.epsilon
-    # type_mask = {}
-    # for i, ti in enumerate(config.unique_types):
-    #     type_mask[i] = jnp.where(system.types == ti, 1.0, 0.0).reshape(-1, 1)
-    #     chi = chi.at[i].set(config.chi[config.type_to_chi[ti]])
-    # chi = chi.reshape(config.n_types, config.n_types, 1, 1, 1)
 
     if system.charges is not None:
         if config.coulombtype == 1:
@@ -327,6 +331,8 @@ def main(args):
             neigh_i = neigh_i.astype(jnp.int32)
             neigh_j = neigh_j.astype(jnp.int32)
 
+            # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+            
             if topol.excluded_pairs is not None:
                 neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
 

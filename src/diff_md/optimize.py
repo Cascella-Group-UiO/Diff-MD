@@ -15,7 +15,7 @@ from .file_io import OutDataset, save_params, store_static, write_full_trajector
 from .input_parser import System
 from .logger import Logger
 from .losses import get_chi, get_LJ_param
-from .nn_options import get_training_parameters
+from .nn_options import get_training_parameters, get_system_options
 from .simulate import simulator
 
 # NOTE: double precision helps mitigate gradient explosion, but it's expensive
@@ -87,14 +87,18 @@ def main(args, comm):
 
         return params, opt_state, loss_value, trj, key, config
 
+    # Read tomli file
     nn_options, params, toml_input = get_training_parameters(args.model)
 
     n_systems = len(nn_options.systems)
     loop_range = list(range(n_systems))
 
+    # Get system specific information
     dataset = []
     for dir in nn_options.systems:
         dataset.append(System.constructor(args, nn_options.name_to_type, dir, params))
+
+    system_options = get_system_options(dataset) 
 
     # Save starting configurations for equilibration
     start_pos, start_vel, start_config = [], [], []
@@ -179,7 +183,6 @@ def main(args, comm):
 
             if nn_options.equilibration:
                 # Restarts from initial positions
-                # chi, _, type_mask = get_chi(params, system.types, system.config)
                 epsl, _ = get_LJ_param(params, system.config)
                 trj, key, config = simulator(
                     # fmt: off

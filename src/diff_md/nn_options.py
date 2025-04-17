@@ -27,6 +27,9 @@ class NNoptions:
     equilibration: int = 0
     shuffle: bool = False
 
+@dataclasses.dataclass
+class System_options:
+
 
 def str_from_dict(input: dict, output: str = "", depth: int = 1) -> str:
     """Recursively parse dict of dicts"""
@@ -147,6 +150,7 @@ def get_training_parameters(
     loss_function = getattr(losses, args["loss"].pop("name"))
     metric = getattr(losses, args["loss"]["metric"])
 
+    # TODO: Move to system args
     # Read in reference all atom densities
     for dir in args["systems"]:
         filename, ext = os.path.splitext(args["loss"]["target_density"])
@@ -217,3 +221,79 @@ def get_training_parameters(
     Logger.rank0.info(f"Training file '{file_path}' parsed successfully.")
     Logger.rank0.info(f"\n\n\tOptimization parameters:\n\t{50 * '-'}\n" f"{ret_str}")
     return nn_options, model, toml_copy
+
+def get_system_options(
+    toml_config, 
+    systems: list, 
+    name_to_type: dict
+) -> System_options:
+    """Parse training options toml file"""
+    args = toml_config.pop("nn")
+
+    for system in systems:
+        dir = system.name
+        # Get data for density profile
+        filename, ext = os.path.splitext(args["loss"]["target_density"])
+        file_path = f"{dir}/{filename}{ext}"
+        if ext == ".npy":
+            reference = jnp.array(np.load(file_path))
+        elif ext == ".xvg":
+            reference = jnp.array(
+                # transpose so we can work with rows
+                np.loadtxt(file_path, comments=["#", "@"]).T
+            )
+        else:
+            Logger.rank0.error(
+                f"Target density filename '{file_path}' has the wrong extension."
+                f"Valid extensions are '.npy' and '.xvg'."
+            )
+            exit()
+        args["system_args"][dir]["z_range"] = reference[0]
+        args["system_args"][dir]["target_density"] = reference[1:]
+
+        # Expand with other system specific options that might need to be converted to type (ie RDF selections)
+        if "com_type" in args["system_args"][dir]:
+            args["system_args"][dir]["com_type"] = name_to_type[
+                args["system_args"][dir]["com_type"]
+            ]
+        
+        # Get data for Radius of gyration
+        
+
+        # Get data for thickness
+    del args["loss"]["target_density"]
+
+    # TODO: needs improvements, we do not parse it correctly when using multiple systems
+    # therefore easily leads to errors in case a list is passed
+    if density_weight := args["loss"].get("density_weight"):
+        if isinstance(density_weight, (float, int)):
+            weight = density_weight
+        elif isinstance(density_weight, list):
+            if len(density_weight) != len(name_to_type):
+                Logger.rank0.error(
+                    "Length of 'density_weight' should be the same as the number of bead types."
+                )
+                exit()
+            weight = jnp.array(args["loss"]["density_weight"])
+        else:
+            Logger.rank0.error(
+                f"Invalid 'density_weight' in '{file_path}': '{density_weight}'"
+            )
+            exit()
+        args["loss"]["density_weight"] = weight
+
+    if constr := args["loss"].get("constraint"):
+        if constr == "cubic":
+            f_constr = getattr(losses, "cubic_constraint")
+        elif constr == "harmonic":
+            f_constr = getattr(losses, "harmonic_constraint")
+        else:
+            Logger.rank0.error(
+                f"Invalid 'constraint' in '{file_path}': '{constr}'\n",
+                "Only 'cubic' and 'harmonic' are accepted.'",
+            )
+            exit()
+        args["loss"]["constraint"] = f_constr
+
+    system_options = System_options(**args)
+    return system_options

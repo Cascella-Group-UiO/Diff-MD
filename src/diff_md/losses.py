@@ -198,7 +198,7 @@ def density_and_apl(
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
     types = jnp.array(system.types)
 
-    epsl_table, chi_constraint = get_LJ_param(model, system.config)
+    epsl_table, constraint = get_LJ_param(model, system.config)
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.charges,
@@ -257,7 +257,7 @@ def density_and_apl(
 
     # Error from chi constraints
     if constraint:
-        error += constraint(model.LJ_param, k_constraint, chi_constraint)
+        error += constraint(model.LJ_param, k_constraint, constraint)
 
     # Prevent chi from reaching unphysical values (hopefully)
     if boundary:
@@ -277,7 +277,91 @@ def thickness_and_zeta_potential(
     return NotImplementedError
 
 
-def radius_of_gyration_and_end_to_end_distance(
+def radius_of_gyration(
     model, system, key, start_temperature, comm,
 ):
+    
     return NotImplementedError
+
+def radius_of_gyration(
+    # fmt: off
+    model, system, key, start_temperature, comm,
+    com_type, n_chains, target_density, target_apl, metric,           # arguments from unpacked reference dict
+    density_weight=1.0, k_constraint=0.01, apl_weight=1.0, width_ratio=1.0,   # arguments from unpacked reference dict
+    boundary=None, constraint=None,
+):
+    types = jnp.array(system.types)
+
+    epsl_table, constraint = get_LJ_param(model, system.config)
+    trj, key, config = simulator(
+        # fmt: off
+        model, system.positions, system.velocities, types, system.charges,
+        epsl_table, key, system.topol, system.config, start_temperature
+    )
+
+    n_frames = len(trj["positions"])
+
+    # CHECK: skip the initial equilibration steps
+    n_skip = 0
+    n_frames_adj = n_frames - n_skip
+
+    M = # Total mass of chain
+    R = # Center of geometry of chain
+    mi = # individual mass of particles
+    ri = # individual position of particles
+
+    Rg = 1/M * jnp.sum(mi * (ri - R)**2)
+
+    for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
+
+
+        box_x, box_y, box_z = box
+
+        # Add frame area per lipid
+        xy_area = box_x * box_y
+        scaling_factor = xy_area * z_length / n_bins
+        xy_apl += xy_area # NOTE: Why?
+
+        fixed_sel = jnp.where(
+            types == com_type, size=config.particle_per_type[com_type]
+        )
+        tails = pos[fixed_sel, 2]
+
+        com = _compute_com(tails, box_z)
+        centered_pos = _center(pos[:, 2], com, box_z)
+
+        kde_density = lateral_density_kde(
+            # fmt: off
+            kde_density, centered_pos, types,
+            z_range, bandwidth, bin_size, scaling_factor, config,
+        )
+
+    kde_density, _ = mpi4jax.allreduce(kde_density, op=MPI.SUM, comm=comm)
+    kde_density /= comm_size * n_frames_adj
+
+    # Calculate error due to density
+    error = (
+        jnp.sum(density_weight * metric(kde_density, target_density, axis=1))
+        / config.n_types
+    )
+
+    # Calculate error due to area per lipid
+    mean_apl = 2 * xy_apl / n_lipids
+    mean_apl, _ = mpi4jax.allreduce(mean_apl, op=MPI.SUM, comm=comm)
+    mean_apl /= comm_size * n_frames_adj
+    error += apl_weight * metric(mean_apl, target_apl)
+
+    # Error from chi constraints
+    if constraint:
+        error += constraint(model.LJ_param, k_constraint, constraint)
+
+    # Prevent chi from reaching unphysical values (hopefully)
+    if boundary:
+        error += boundary_constraint(epsl_table, boundary)
+
+    return error, (
+        {"density": kde_density, "area per lipid": mean_apl},
+        trj,
+        key,
+        config,
+    )

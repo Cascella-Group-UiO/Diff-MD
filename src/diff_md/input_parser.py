@@ -21,6 +21,7 @@ class System:
     types: Array
     names: np.ndarray
     molecules: np.ndarray
+    masses: np.ndarray
     charges: Optional[Array]
     config: Config
     topol: Topology
@@ -47,9 +48,7 @@ class System:
                 types = np.array(in_file["types"])
                 names = np.array(in_file["names"])
                 molecules = np.array(in_file["molecules"])
-
-                # Added in the h5py to test dynamics with different masses
-                # masses = in_file["masses"][:]
+                masses = np.array(in_file["masses"])
 
                 charges = (
                     None
@@ -67,7 +66,7 @@ class System:
             f"Coordinate file '{coord_path}' parsed successfully.",
         )
         # Set fixed mass
-        masses = 72.0
+        # masses = 72.0
 
         # topol = get_topol(f"{dir}/{args.topol}", molecules, model)
         config, types = get_config(
@@ -84,6 +83,7 @@ class System:
             types,
             names,
             molecules,
+            masses,
             charges,
             config,
             topol,
