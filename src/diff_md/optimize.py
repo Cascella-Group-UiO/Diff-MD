@@ -50,8 +50,6 @@ def main(args, comm):
             key = jax.random.PRNGKey(args.seed + i)
 
     def step(params, opt_state, key):
-        # print("AAAAAAAAAAAAAAAAA")
-        # print(system_options)
 
         (loss_value, (output, trj, key, config)), grads = value_and_grad(
             nn_options.loss, has_aux=True
@@ -101,7 +99,7 @@ def main(args, comm):
     for dir in nn_options.systems:
         dataset.append(System.constructor(args, nn_options.name_to_type, dir, params))
 
-    system_options, toml_input = get_system_options(toml_input, dataset, nn_options.name_to_type) 
+    system_options, toml_input = get_system_options(toml_input, dataset, nn_options.name_to_type)
 
     # Save starting configurations for equilibration
     start_pos, start_vel, start_config = [], [], []
@@ -166,7 +164,7 @@ def main(args, comm):
     # Run training loop
     for epoch in range(start_epoch, start_epoch + nn_options.n_epochs):
         epoch_loss = 0
-        
+
         destdir = f"{args.destdir}/step_{epoch}"
         params_file = f"{destdir}/training.toml"
         if rank == 0:
@@ -185,6 +183,8 @@ def main(args, comm):
             start_temperature = init_temps[i]
 
             if nn_options.equilibration:
+                # print('AAAAAAAAAAA')
+                # print('TTLJ', params.type_to_LJ)
                 # Restarts from initial positions
                 epsl, _ = get_LJ_param(params, system.config)
                 trj, key, config = simulator(

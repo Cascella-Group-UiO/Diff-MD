@@ -248,6 +248,5 @@ def get_system_options(
         args["system_args"][dir]["chain_masses"] = chain_masses
 
     system_options = System_options(args["system_args"])
-    print(system_options)
 
     return system_options, toml_copy

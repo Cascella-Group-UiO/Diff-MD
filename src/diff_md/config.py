@@ -348,6 +348,7 @@ def get_config(
 
             sgm = np.zeros((n_types, n_types))
             epsl = np.zeros((n_types, n_types))
+            LJ_param = jnp.zeros(len(v))
 
             for i, c in enumerate(v):
                 type_0, type_1 = (name_to_type[c[0]], name_to_type[c[1]])
@@ -365,12 +366,16 @@ def get_config(
 
                 sgm[type_0, type_1] = c[2]    
                 epsl[type_0, type_1] = c[3]         
+
+                LJ_param = LJ_param.at[i].set(c[3])  # TODO: Check if this is not dangerous
             
             config_dict["sgm_dict"] = sgm_dict
             config_dict["epsl_dict"] = epsl_dict
             
             config_dict["epsl_table"] = jnp.array(epsl + epsl.T - np.diag(np.diag(epsl)))
             config_dict["sgm_table"] = jnp.array(sgm + sgm.T - np.diag(np.diag(sgm)))
+
+            config_dict["LJ_param"] = LJ_param
 
         if k == "thermostat_coupling_groups":
             for i, name_list in enumerate(v):

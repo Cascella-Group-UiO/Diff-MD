@@ -64,17 +64,16 @@ def get_LJ_param(
 
     # Preprocessing when only specifying a subset of values to train
     if model.type_to_LJ.ndim == 1:
-        dummy_lj = config.LJ_param 
+        dummy_lj = config.LJ_param
         for ttc, c in zip(model.type_to_LJ, model.LJ_param):
             if ttc in config.type_to_LJ:
-                dummy_lj[ttc] = c
+                dummy_lj = dummy_lj.at[ttc].set(c)
 
     for i, ti in enumerate(config.unique_types):
         if model.type_to_LJ.ndim == 1:
             epsl = epsl.at[i].set(dummy_lj[config.type_to_LJ[i]])
         else:
             epsl = epsl.at[i].set(model.LJ_param[model.type_to_LJ[ti, config.unique_types]])
-
     # Parse constraints
     for ttc, val in model.epsl_constraints.items():
         if ttc in config.type_to_LJ:
