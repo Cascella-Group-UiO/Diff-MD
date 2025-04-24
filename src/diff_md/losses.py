@@ -191,8 +191,8 @@ def lateral_density_kde(
 def density_and_apl(
     # fmt: off
     model, system, key, start_temperature, comm,
-    z_range, com_type, n_lipids, target_density, target_apl, metric,           # arguments from unpacked reference dict
-    density_weight=1.0, k_constraint=0.01, apl_weight=1.0, width_ratio=1.0,   # arguments from unpacked reference dict
+    z_range, com_type, n_lipids, target_density, target_apl,    # System specific arguments
+    metric, density_weight=1.0, k_constraint=0.01, apl_weight=1.0, width_ratio=1.0,   # General arguments for all systems (nn_options.loss_args)
     boundary=None, constraint=None,
 ):
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
@@ -271,23 +271,11 @@ def density_and_apl(
     )
 
 
-def thickness_and_zeta_potential(
-    model, system, key, start_temperature, comm,
-):
-    return NotImplementedError
-
-
-def radius_of_gyration(
-    model, system, key, start_temperature, comm,
-):
-    
-    return NotImplementedError
-
 def radius_of_gyration(
     # fmt: off
     model, system, key, start_temperature, comm,
-    com_type, n_chains, target_density, target_apl, metric,           # arguments from unpacked reference dict
-    density_weight=1.0, k_constraint=0.01, apl_weight=1.0, width_ratio=1.0,   # arguments from unpacked reference dict
+    n_chains, n_atoms_per_chain, chain_indices, chain_masses,   # arguments from unpacked reference dict
+    metric, target_rg, rg_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
     boundary=None, constraint=None,
 ):
     types = jnp.array(system.types)
@@ -299,57 +287,31 @@ def radius_of_gyration(
         epsl_table, key, system.topol, system.config, start_temperature
     )
 
+    comm_size = comm.Get_size()
     n_frames = len(trj["positions"])
+    mean_Rg = 0.0
 
     # CHECK: skip the initial equilibration steps
     n_skip = 0
     n_frames_adj = n_frames - n_skip
 
-    M = # Total mass of chain
-    R = # Center of geometry of chain
-    mi = # individual mass of particles
-    ri = # individual position of particles
-
-    Rg = 1/M * jnp.sum(mi * (ri - R)**2)
-
     for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
+        chains_pos = jnp.take(pos, chain_indices, axis=0)
+        box = jnp.reshape(box, (1, 3))
+        chains_pos = jnp.mod(chains_pos, box)
 
+        total_mass = jnp.sum(chain_masses, axis=1)
+        cog = jnp.sum(chains_pos, axis=1) / n_atoms_per_chain
+        cog = jnp.expand_dims(cog, axis=1)
 
-        box_x, box_y, box_z = box
+        Rg = jnp.sum(chain_masses * jnp.linalg.norm(chains_pos - cog, axis=2) ** 2, axis=1) / total_mass
+        
+        mean_Rg += jnp.sum(Rg) / n_chains
 
-        # Add frame area per lipid
-        xy_area = box_x * box_y
-        scaling_factor = xy_area * z_length / n_bins
-        xy_apl += xy_area # NOTE: Why?
-
-        fixed_sel = jnp.where(
-            types == com_type, size=config.particle_per_type[com_type]
-        )
-        tails = pos[fixed_sel, 2]
-
-        com = _compute_com(tails, box_z)
-        centered_pos = _center(pos[:, 2], com, box_z)
-
-        kde_density = lateral_density_kde(
-            # fmt: off
-            kde_density, centered_pos, types,
-            z_range, bandwidth, bin_size, scaling_factor, config,
-        )
-
-    kde_density, _ = mpi4jax.allreduce(kde_density, op=MPI.SUM, comm=comm)
-    kde_density /= comm_size * n_frames_adj
-
-    # Calculate error due to density
-    error = (
-        jnp.sum(density_weight * metric(kde_density, target_density, axis=1))
-        / config.n_types
-    )
-
-    # Calculate error due to area per lipid
-    mean_apl = 2 * xy_apl / n_lipids
-    mean_apl, _ = mpi4jax.allreduce(mean_apl, op=MPI.SUM, comm=comm)
-    mean_apl /= comm_size * n_frames_adj
-    error += apl_weight * metric(mean_apl, target_apl)
+    # Calculate error
+    mean_Rg, _ = mpi4jax.allreduce(mean_Rg, op=MPI.SUM, comm=comm)
+    mean_Rg /= comm_size * n_frames_adj
+    error = rg_weight * metric(mean_Rg, target_rg)
 
     # Error from chi constraints
     if constraint:
@@ -360,8 +322,14 @@ def radius_of_gyration(
         error += boundary_constraint(epsl_table, boundary)
 
     return error, (
-        {"density": kde_density, "area per lipid": mean_apl},
+        {"radius of gyration": mean_Rg},
         trj,
         key,
         config,
     )
+
+
+def thickness(
+    model, system, key, start_temperature, comm,
+):
+    return NotImplementedError

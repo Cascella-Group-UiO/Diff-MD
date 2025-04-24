@@ -24,6 +24,7 @@ from .thermostat import (
     generate_initial_velocities
 )
 from .neighbor_list import (
+    nlist,
     apply_nlist, 
     apply_nlist_elec, 
     exclude_bonded_neighbors
@@ -80,13 +81,23 @@ def simulator(
     # Make neighbor list
     rv = config.rv 
     ns_nlist = config.ns_nlist 
-    nlist_calc = NeighborList(cutoff=rv, full_list=False)
-    neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
-    max_neighbors = len(neigh_i) + config.n_particles*5
-    neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
-    neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
-    neigh_i = neigh_i.astype(jnp.int32)
-    neigh_j = neigh_j.astype(jnp.int32)
+    # nlist_calc = NeighborList(cutoff=rv, full_list=False)
+    # neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
+    # max_neighbors = len(neigh_i) + config.n_particles*5
+    # neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+    # neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+    # neigh_i = neigh_i.astype(jnp.int32)
+    # neigh_j = neigh_j.astype(jnp.int32)
+
+    dens = config.n_particles / config.box_size.prod()
+    max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
+    max_neighbors += 10000 # Add a buffer for safety
+
+    # Inicialize neighbor list
+    neigh_i = jnp.zeros(max_neighbors, dtype=int)
+    neigh_j = jnp.zeros(max_neighbors, dtype=int)
+    neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+
 
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -233,11 +244,13 @@ def simulator(
     for step in range(1, n_steps + 1):
         # First outer rRESPA velocity step
         if step%ns_nlist == 0:
-            neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
-            neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
-            neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
-            neigh_i = neigh_i.astype(jnp.int32)
-            neigh_j = neigh_j.astype(jnp.int32)
+            neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+
+            # neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
+            # neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+            # neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+            # neigh_i = neigh_i.astype(jnp.int32)
+            # neigh_j = neigh_j.astype(jnp.int32)
 
             if topol.excluded_pairs is not None:
                 neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])

@@ -25,6 +25,7 @@ class System:
     charges: Optional[Array]
     config: Config
     topol: Topology
+    resnames: np.ndarray # Implement
     name: str
 
     @classmethod
@@ -49,6 +50,7 @@ class System:
                 names = np.array(in_file["names"])
                 molecules = np.array(in_file["molecules"])
                 masses = np.array(in_file["masses"])
+                resnames = np.array(in_file["resnames"])
 
                 charges = (
                     None
@@ -87,5 +89,6 @@ class System:
             charges,
             config,
             topol,
+            resnames,
             name=dir,
         )

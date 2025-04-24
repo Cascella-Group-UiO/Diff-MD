@@ -50,6 +50,9 @@ def main(args, comm):
             key = jax.random.PRNGKey(args.seed + i)
 
     def step(params, opt_state, key):
+        # print("AAAAAAAAAAAAAAAAA")
+        # print(system_options)
+
         (loss_value, (output, trj, key, config)), grads = value_and_grad(
             nn_options.loss, has_aux=True
         )(
@@ -59,7 +62,7 @@ def main(args, comm):
             start_temperature,
             comm,
             **nn_options.loss_args,
-            **nn_options.system_args[system.name],
+            **system_options.system_args[system.name],
         )
 
         # Save stuff for plotting
@@ -72,8 +75,8 @@ def main(args, comm):
 
         # Get gradients from all ranks
         # Gradients are already normalized by autodiff
-        total_chi_grad, _ = mpi4jax.allreduce(grads.chi, op=MPI.SUM, comm=comm)
-        grads = grads.replace(chi=total_chi_grad)
+        total_LJ_param_grad, _ = mpi4jax.allreduce(grads.LJ_param, op=MPI.SUM, comm=comm)
+        grads = grads.replace(LJ_param=total_LJ_param_grad)
 
         # Update parameters
         updates, opt_state = nn_options.optimizer.update(grads, opt_state, params)
@@ -98,7 +101,7 @@ def main(args, comm):
     for dir in nn_options.systems:
         dataset.append(System.constructor(args, nn_options.name_to_type, dir, params))
 
-    system_options = get_system_options(dataset) 
+    system_options, toml_input = get_system_options(toml_input, dataset, nn_options.name_to_type) 
 
     # Save starting configurations for equilibration
     start_pos, start_vel, start_config = [], [], []
@@ -118,7 +121,7 @@ def main(args, comm):
             loss_value, (output, trj, _, config) = nn_options.loss(
                 # fmt: off
                 params, system, key, init_temps[i], comm,
-                **nn_options.loss_args, **nn_options.system_args[system.name]
+                **nn_options.loss_args, **system_options.system_args[system.name]
             )
             Logger.rank0.debug(f"Loss = {loss_value}")
 
