@@ -220,7 +220,8 @@ def main(args):
             LJ_forces, pair_params, config
         )
 
-    kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
+    kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
+
     out_dataset = OutDataset(
         args.destdir,
         args.output,
@@ -464,7 +465,7 @@ def main(args):
             )
 
             # Calculate pressure
-            kinetic_energy = 0.5 * config.mass * jnp.sum(velocities**2)
+            kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             pressure = (
                 kinetic_pressure
@@ -579,8 +580,9 @@ def main(args):
             if onp.mod(step, config.n_print) == 0 and step != 0:
                 frame = step // config.n_print
 
-                kinetic_energy = 0.5 * config.mass * jnp.sum(velocities**2)
+                kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
+                print(temperature)
                 if config.pressure or config.barostat:
                     kinetic_pressure = 2.0 / 3.0 * kinetic_energy
                     pressure = (
@@ -659,7 +661,7 @@ def main(args):
                 )        
 
 
-        kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
+        kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
 
         frame = (step + 1) // config.n_print
         temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)

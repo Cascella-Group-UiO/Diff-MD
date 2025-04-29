@@ -200,7 +200,7 @@ def density_and_apl(
     epsl_table, constraint = get_LJ_param(model, system.config)
     trj, key, config = simulator(
         # fmt: off
-        model, system.positions, system.velocities, types, system.charges,
+        model, system.positions, system.velocities, types, system.masses, system.charges,
         epsl_table, key, system.topol, system.config, start_temperature
     )
 
@@ -223,7 +223,7 @@ def density_and_apl(
         # Add frame area per lipid
         xy_area = box_x * box_y
         scaling_factor = xy_area * z_length / n_bins
-        xy_apl += xy_area # NOTE: Why?
+        xy_apl += xy_area
 
         fixed_sel = jnp.where(
             types == com_type, size=config.particle_per_type[com_type]
@@ -282,7 +282,7 @@ def radius_of_gyration(
     epsl_table, constraint = get_LJ_param(model, system.config)
     trj, key, config = simulator(
         # fmt: off
-        model, system.positions, system.velocities, types, system.charges,
+        model, system.positions, system.velocities, types, system.masses, system.charges,
         epsl_table, key, system.topol, system.config, start_temperature
     )
 
@@ -329,6 +329,84 @@ def radius_of_gyration(
 
 
 def thickness(
+    # fmt: off
     model, system, key, start_temperature, comm,
+    chain_indices, chain_masses,   # arguments from unpacked reference dict
+    metric, target_rg, rg_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
+    boundary=None, constraint=None,
 ):
-    return NotImplementedError
+    types = jnp.array(system.types)
+
+    epsl_table, constraint = get_LJ_param(model, system.config)
+    trj, key, config = simulator(
+        # fmt: off
+        model, system.positions, system.velocities, types, system.masses, system.charges,
+        epsl_table, key, system.topol, system.config, start_temperature
+    )
+
+    comm_size = comm.Get_size()
+    n_frames = len(trj["positions"])
+    mean_Rg = 0.0
+
+    # CHECK: skip the initial equilibration steps
+    n_skip = 0
+    n_frames_adj = n_frames - n_skip
+
+    comm_size = comm.Get_size()
+    n_bins = z_range.size
+    bin_size = z_range[1] - z_range[0]
+    n_frames = len(trj["positions"])
+
+    # CHECK: skip the initial equilibration steps
+    n_skip = 0
+    n_frames_adj = n_frames - n_skip
+    xy_apl = 0.0
+    kde_density = jnp.zeros((config.n_types, n_bins))
+    bandwidth = float(width_ratio * bin_size)
+    z_length = z_range[-1] - z_range[0] + bin_size
+
+    for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
+        box_x, box_y, box_z = box
+
+        # Add frame area per lipid
+        xy_area = box_x * box_y
+        scaling_factor = xy_area * z_length / n_bins
+        xy_apl += xy_area # NOTE: Why?
+
+        fixed_sel = jnp.where(
+            types == com_type, size=config.particle_per_type[com_type]
+        )
+        tails = pos[fixed_sel, 2]
+
+        com = _compute_com(tails, box_z)
+        centered_pos = _center(pos[:, 2], com, box_z)
+
+        kde_density = lateral_density_kde(
+            # fmt: off
+            kde_density, centered_pos, types,
+            z_range, bandwidth, bin_size, scaling_factor, config,
+        )
+
+    kde_density, _ = mpi4jax.allreduce(kde_density, op=MPI.SUM, comm=comm)
+    kde_density /= comm_size * n_frames_adj
+
+
+    # Calculate error
+    mean_Rg, _ = mpi4jax.allreduce(mean_Rg, op=MPI.SUM, comm=comm)
+    mean_Rg /= comm_size * n_frames_adj
+    error = rg_weight * metric(mean_Rg, target_rg)
+
+    # Error from chi constraints
+    if constraint:
+        error += constraint(model.LJ_param, k_constraint, constraint)
+
+    # Prevent chi from reaching unphysical values (hopefully)
+    if boundary:
+        error += boundary_constraint(epsl_table, boundary)
+
+    return error, (
+        {"radius of gyration": mean_Rg},
+        trj,
+        key,
+        config,
+    )

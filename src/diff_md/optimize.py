@@ -183,13 +183,11 @@ def main(args, comm):
             start_temperature = init_temps[i]
 
             if nn_options.equilibration:
-                # print('AAAAAAAAAAA')
-                # print('TTLJ', params.type_to_LJ)
                 # Restarts from initial positions
                 epsl, _ = get_LJ_param(params, system.config)
                 trj, key, config = simulator(
                     # fmt: off
-                    params, start_pos[i], start_vel[i], system.types, system.charges,
+                    params, start_pos[i], start_vel[i], system.types, system.masses, system.charges,
                     epsl, key, system.topol, start_config[i], start_temperature, nn_options.equilibration
                 )
                 system.positions, system.velocities = (

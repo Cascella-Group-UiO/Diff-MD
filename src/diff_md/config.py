@@ -223,8 +223,6 @@ class Config:
             **args,
         )
     
-    # Doesn't seem important right now
-    #
     def __str__(self) -> str:
         ret_str = f'\n\n\tSimulation parameters: \n\t{50 * "-"}\n'
         for k, v in self.__dict__.items():
@@ -366,7 +364,7 @@ def get_config(
 
                 sgm[type_0, type_1] = c[2]    
                 epsl[type_0, type_1] = c[3]         
-
+                
                 LJ_param = LJ_param.at[i].set(c[3])  # TODO: Check if this is not dangerous
             
             config_dict["sgm_dict"] = sgm_dict

@@ -37,6 +37,7 @@ def simulator(
     positions,
     velocities,
     types,
+    masses,
     charges,
     epsl_table,
     key,
@@ -81,14 +82,6 @@ def simulator(
     # Make neighbor list
     rv = config.rv 
     ns_nlist = config.ns_nlist 
-    # nlist_calc = NeighborList(cutoff=rv, full_list=False)
-    # neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
-    # max_neighbors = len(neigh_i) + config.n_particles*5
-    # neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
-    # neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
-    # neigh_i = neigh_i.astype(jnp.int32)
-    # neigh_j = neigh_j.astype(jnp.int32)
-
     dens = config.n_particles / config.box_size.prod()
     max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
     max_neighbors += 10000 # Add a buffer for safety
@@ -205,10 +198,6 @@ def simulator(
             LJ_forces, pair_params, config
         )
         
-    # field_energy, field_forces = get_field_energy_and_forces(
-    #     positions, phi, field_forces, field_fog, chi, type_mask, config
-    # )
-
     if config.barostat:
         ctype = jnp.complex128 if phi.dtype == "float64" else jnp.complex64
         phi_fourier = jnp.zeros((config.n_types, *config.fft_shape), dtype=ctype)
@@ -216,7 +205,7 @@ def simulator(
     # Save step 0 to trajectory
     if config.n_print > 0:
         # NOTE: we don't need to save all this stuff for the differentiable MD
-        kinetic_energy = 0.5 * config.mass * jnp.sum(velocities**2)
+        kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
         temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
         trj["angle energy"] = [angle_energy]
         trj["bond energy"] = [bond_energy]
@@ -246,12 +235,6 @@ def simulator(
         if step%ns_nlist == 0:
             neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
-            # neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
-            # neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
-            # neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
-            # neigh_i = neigh_i.astype(jnp.int32)
-            # neigh_j = neigh_j.astype(jnp.int32)
-
             if topol.excluded_pairs is not None:
                 neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
 
@@ -279,7 +262,7 @@ def simulator(
                 (bond_forces + angle_forces + dihedral_forces + improper_forces)
                 / config.mass,
                 config.inner_ts,
-            )
+            ) # TODO: Make sure this is right for system with different masses
             # Update positions
             positions = integrate_position(positions, velocities, config.inner_ts)
             positions = jnp.mod(positions, config.box_size)
@@ -392,7 +375,7 @@ def simulator(
             )            
 
             # Calculate pressure
-            kinetic_energy = 0.5 * config.mass * jnp.sum(velocities**2)
+            kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             pressure = (
                 kinetic_pressure
@@ -505,7 +488,7 @@ def simulator(
         if config.n_print > 0:
             if onp.mod(step, config.n_print) == 0 and step != 0:
                 frame = step // config.n_print
-                kinetic_energy = 0.5 * config.mass * jnp.sum(velocities**2)
+                kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
                 trj["angle energy"].append(angle_energy)
                 trj["bond energy"].append(bond_energy)
