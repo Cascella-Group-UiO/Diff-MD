@@ -6,27 +6,30 @@ from typing import Tuple
 
 @jit
 def nlist(positions, box_size, r_cut, i, j):
-  
-  """
-  Brute force neighbor list
-  At least 10 times slower than Vesin
-  """
 
-  positions_i = jnp.expand_dims(positions, axis=1)
+    """
+    Brute force neighbor list
+    At least 10 times slower than Vesin
+    """
 
-  r_vec = positions_i - positions
-  r_vec = r_vec - box_size * jnp.around(r_vec / box_size)
-  r = jnp.linalg.norm(r_vec, axis=2)
+    i = i.at[...].set(-1)
+    j = j.at[...].set(-1)
 
-  # mask = jnp.less(r, r_cut)
-  mask = jnp.triu(r < r_cut, k=1)
+    positions_i = jnp.expand_dims(positions, axis=1)
 
-  i_idx, j_idx = jnp.where(mask, size=i.shape[0], fill_value=-1)
+    r_vec = positions_i - positions
+    r_vec = r_vec - box_size * jnp.around(r_vec / box_size)
+    r = jnp.linalg.norm(r_vec, axis=2)
 
-  i = i.at[...].set(i_idx)
-  j = j.at[...].set(j_idx)
+    # mask = jnp.less(r, r_cut)
+    mask = jnp.triu(r < r_cut, k=1)
 
-  return i, j
+    i_idx, j_idx = jnp.where(mask, size=i.shape[0], fill_value=-1)
+
+    i = i.at[...].set(i_idx)
+    j = j.at[...].set(j_idx)
+
+    return i, j
 
 
 @jit

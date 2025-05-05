@@ -84,13 +84,12 @@ def simulator(
     ns_nlist = config.ns_nlist 
     dens = config.n_particles / config.box_size.prod()
     max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
-    max_neighbors += 10000 # Add a buffer for safety
+    max_neighbors += 5 # Add a buffer for safety
 
     # Inicialize neighbor list
     neigh_i = jnp.zeros(max_neighbors, dtype=int)
     neigh_j = jnp.zeros(max_neighbors, dtype=int)
     neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
-
 
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -206,6 +205,7 @@ def simulator(
     if config.n_print > 0:
         # NOTE: we don't need to save all this stuff for the differentiable MD
         kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
+        # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
         temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
         trj["angle energy"] = [angle_energy]
         trj["bond energy"] = [bond_energy]
@@ -233,6 +233,19 @@ def simulator(
     for step in range(1, n_steps + 1):
         # First outer rRESPA velocity step
         if step%ns_nlist == 0:
+            
+            # print(f'i:\n{neigh_i}\nj:\n{neigh_j}')
+
+            # probe_idx = 1
+            
+            # j_idx = jnp.where(neigh_i == probe_idx)[0]
+            # j = jnp.take(neigh_j, j_idx)
+
+            # i_idx = jnp.where(neigh_j == probe_idx)[0]
+            # i = jnp.take(neigh_i, i_idx)
+
+            # print(f'Neigh. of particle {probe_idx}: {jnp.concatenate([i, j])}')
+
             neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
             if topol.excluded_pairs is not None:
@@ -245,7 +258,7 @@ def simulator(
 
         velocities = integrate_velocity(
             velocities,
-            (LJ_forces + elec_forces + reconstr_forces) / config.mass,
+            (LJ_forces + elec_forces + reconstr_forces) / 1.0,
             config.outer_ts,
         )
 
@@ -376,6 +389,8 @@ def simulator(
 
             # Calculate pressure
             kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
+            # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
+            
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             pressure = (
                 kinetic_pressure
@@ -401,38 +416,38 @@ def simulator(
                     key,
                 )
 
-            if config.coulombtype and charges is not None:
-                pair_params = apply_nlist_elec(
-                    neigh_i, 
-                    neigh_j, 
-                    positions, 
-                    charges, 
-                    config.box_size, 
-                    config.sgm_table, 
-                    epsl_table, 
-                    types
+        if config.coulombtype and charges is not None:
+            pair_params = apply_nlist_elec(
+                neigh_i, 
+                neigh_j, 
+                positions, 
+                charges, 
+                config.box_size, 
+                config.sgm_table, 
+                epsl_table, 
+                types
+            )
+            if topol.excluded_pairs is not None:
+                excl_pair_params = apply_nlist_elec(
+                    topol.excluded_pairs[0],
+                    topol.excluded_pairs[1],
+                    positions,
+                    charges,
+                    config.box_size,
+                    config.sgm_table,
+                    epsl_table,
+                    types,
                 )
-                if topol.excluded_pairs is not None:
-                    excl_pair_params = apply_nlist_elec(
-                        topol.excluded_pairs[0],
-                        topol.excluded_pairs[1],
-                        positions,
-                        charges,
-                        config.box_size,
-                        config.sgm_table,
-                        epsl_table,
-                        types,
-                    )
-            else:
-                pair_params = apply_nlist(
-                    neigh_i, 
-                    neigh_j, 
-                    positions, 
-                    config.box_size, 
-                    config.sgm_table, 
-                    epsl_table, 
-                    types
-                )      
+        else:
+            pair_params = apply_nlist(
+                neigh_i, 
+                neigh_j, 
+                positions, 
+                config.box_size, 
+                config.sgm_table, 
+                epsl_table, 
+                types
+            )      
         
         # Recompute after barostat
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(
@@ -471,7 +486,7 @@ def simulator(
         # Second outer rRESPA velocity step
         velocities = integrate_velocity(
             velocities,
-            (LJ_forces + elec_forces + reconstr_forces) / config.mass,
+            (LJ_forces + elec_forces + reconstr_forces) / 1.0,
             config.outer_ts,
         )
 
@@ -489,6 +504,7 @@ def simulator(
             if onp.mod(step, config.n_print) == 0 and step != 0:
                 frame = step // config.n_print
                 kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
+                # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
                 trj["angle energy"].append(angle_energy)
                 trj["bond energy"].append(bond_energy)

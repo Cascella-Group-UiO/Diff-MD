@@ -88,22 +88,20 @@ def main(args):
     # Make neighbor list
     rv = config.rv 
     ns_nlist = config.ns_nlist 
-    nlist_calc = NeighborList(cutoff=rv, full_list=False)
-    neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
-    max_neighbors = len(neigh_i) + config.n_particles*5
-    neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
-    neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
-    neigh_i = neigh_i.astype(jnp.int32)
-    neigh_j = neigh_j.astype(jnp.int32)
+    # nlist_calc = NeighborList(cutoff=rv, full_list=False)
+    # neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
+    # max_neighbors = len(neigh_i) + config.n_particles*5
+    # neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+    # neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+    # neigh_i = neigh_i.astype(jnp.int32)
+    # neigh_j = neigh_j.astype(jnp.int32)
 
-    # dens = config.n_particles / config.box_size.prod()
-    # max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
-    # max_neighbors += 10000 # Add a buffer for safety
-
-    # # Inicialize neighbor list
-    # neigh_i = jnp.zeros(max_neighbors, dtype=int)
-    # neigh_j = jnp.zeros(max_neighbors, dtype=int)
-    # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+    dens = config.n_particles / config.box_size.prod()
+    max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
+    max_neighbors += 5 # Add a buffer for safety
+    neigh_i = jnp.zeros(max_neighbors, dtype=int)
+    neigh_j = jnp.zeros(max_neighbors, dtype=int)
+    neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -220,6 +218,12 @@ def main(args):
             LJ_forces, pair_params, config
         )
 
+
+    # print('Mass:', config.mass.shape)
+    # print('Velocities:', velocities.shape)
+    # print('Norm velocities:', jnp.linalg.norm(velocities, axis=1).shape)
+    # print('mass * Norm velocities:', (system.masses * jnp.linalg.norm(velocities, axis=1)).shape)
+
     kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
 
     out_dataset = OutDataset(
@@ -326,13 +330,13 @@ def main(args):
 
         # Initial rRESPA velocity step
         if step%ns_nlist == 0:
-            neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
-            neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
-            neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
-            neigh_i = neigh_i.astype(jnp.int32)
-            neigh_j = neigh_j.astype(jnp.int32)
+            # neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
+            # neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+            # neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+            # neigh_i = neigh_i.astype(jnp.int32)
+            # neigh_j = neigh_j.astype(jnp.int32)
 
-            # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+            neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
             
             if topol.excluded_pairs is not None:
                 neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -342,11 +346,15 @@ def main(args):
             elec_forces = zero_forces(elec_forces, restr_atoms)
             # reconstructed_forces = zero_forces(reconstructed_forces, restr_atoms)
 
+        # print("AAAAAAAAAAAAAA")
+        # print(((LJ_forces + elec_forces + reconstr_forces) / config.mass).shape)
+
         velocities = integrate_velocity(
             velocities,
             (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
+        # print((LJ_forces + elec_forces + reconstr_forces) / config.mass)
 
         # Inner rRESPA steps
         for _ in range(config.respa_inner):
@@ -465,7 +473,8 @@ def main(args):
             )
 
             # Calculate pressure
-            kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
+            kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)    
+            # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             pressure = (
                 kinetic_pressure
@@ -566,7 +575,7 @@ def main(args):
 
         # Thermostat
         if config.target_temperature:
-            velocities, key = csvr_thermostat(velocities, key, config)
+            velocities, key = csvr_thermostat(velocities, key, config, system.masses)
 
         # Remove total linear momentum
         if config.cancel_com_momentum:
@@ -581,8 +590,8 @@ def main(args):
                 frame = step // config.n_print
 
                 kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
+                # print((system.masses * jnp.linalg.norm(velocities, axis=1)**2))
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
-                print(temperature)
                 if config.pressure or config.barostat:
                     kinetic_pressure = 2.0 / 3.0 * kinetic_energy
                     pressure = (
@@ -662,6 +671,7 @@ def main(args):
 
 
         kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
+        # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
 
         frame = (step + 1) // config.n_print
         temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)

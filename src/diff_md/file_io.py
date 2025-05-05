@@ -228,7 +228,7 @@ def store_static(
     ) = setup_time_dependent_element(
         "LJ_energy", h5md.observables, n_frames, (1,), dtype, units="kJ mol-1"
     )    
-    if charges is not False:
+    if charges:
         (
             _,
             h5md.field_q_energy_step,
@@ -544,7 +544,7 @@ def write_full_trajectory(
     config,
     velocity_out=False,
     force_out=False,
-    charge_out=False,
+    charge_out=True,
 ):
     for frame, (  # type: ignore
         angle_energy,

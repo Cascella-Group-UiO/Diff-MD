@@ -19,14 +19,15 @@ def generate_initial_velocities(velocities, key, config):
 
     com_velocity = jnp.sum(velocities, axis=0)
     velocities = velocities - com_velocity / config.n_particles
-    kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
+
+    kinetic_energy = 0.5 * jnp.sum(config.mass * jnp.linalg.norm(velocities, axis=1)**2)
 
     factor = jnp.sqrt(1.5 * config.n_particles * kT_start / kinetic_energy)
     return velocities * factor
 
 
-@jax.jit
-def csvr_thermostat(velocity, key, config):
+# @jax.jit
+def csvr_thermostat(velocity, key, config, masses):
     """Canonical sampling through velocity rescaling thermostat
 
     References
@@ -42,7 +43,11 @@ def csvr_thermostat(velocity, key, config):
         group_velocity -= com_velocity
 
         dof = 3 * group_n_particles
-        kinetic_energy = 0.5 * config.mass * jnp.sum(group_velocity**2)
+
+        # print('mass* vel', (masses * jnp.linalg.norm(group_velocity, axis=1)**2).shape)
+        # print(jnp.linalg.norm(group_velocity, axis=1))
+        kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(group_velocity, axis=1)**2)
+
         target_kinetic = 0.5 * dof * config.R * config.target_temperature
         c = jnp.exp(-(config.outer_ts) / config.tau_t)
 

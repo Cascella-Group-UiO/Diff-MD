@@ -37,7 +37,7 @@ def get_LJ_energy_and_forces(
     forces = forces.at[neigh_i].add(-grads)
     forces = forces.at[neigh_j].add(grads)
 
-    e_cut =  LJ_energy(config.rc, s_ij, e_ij)
+    e_cut =  LJ_energy(config.rlj, s_ij, e_ij)
     energy = energies - e_cut
     energy = jnp.nan_to_num(energy, nan=0.0)
 
@@ -63,7 +63,7 @@ def get_LJ_energy_and_forces_npt(
     forces = forces.at[neigh_i].add(-grads)
     forces = forces.at[neigh_j].add(grads)
 
-    e_cut =  LJ_energy(config.rc, s_ij, e_ij)
+    e_cut =  LJ_energy(config.rlj, s_ij, e_ij)
     energy = energies - e_cut
     energy = jnp.nan_to_num(energy, nan=0.0)
 

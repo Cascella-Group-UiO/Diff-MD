@@ -312,11 +312,11 @@ def radius_of_gyration(
     mean_Rg /= comm_size * n_frames_adj
     error = rg_weight * metric(mean_Rg, target_rg)
 
-    # Error from chi constraints
+    # Error from constraints
     if constraint:
         error += constraint(model.LJ_param, k_constraint, constraint)
 
-    # Prevent chi from reaching unphysical values (hopefully)
+    # Prevent interaction parameter from reaching unphysical values (hopefully)
     if boundary:
         error += boundary_constraint(epsl_table, boundary)
 

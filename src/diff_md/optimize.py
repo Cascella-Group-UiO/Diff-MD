@@ -139,7 +139,7 @@ def main(args, comm):
             store_static(
                 # fmt: off
                 out_dataset, system.names, system.types, system.indices, config, system.topol.bonds_2[0], system.topol.bonds_2[1],
-                system.topol.molecules, molecules=system.molecules, velocity_out=False, force_out=False, charges=False,
+                system.topol.molecules, molecules=system.molecules, velocity_out=False, force_out=False, charges=True,
             )
             write_full_trajectory(out_dataset, trj, system.indices, config)
             out_dataset.file.close()
