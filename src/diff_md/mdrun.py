@@ -98,9 +98,9 @@ def main(args):
 
     dens = config.n_particles / config.box_size.prod()
     max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
-    max_neighbors += 5 # Add a buffer for safety
-    neigh_i = jnp.zeros(max_neighbors, dtype=int)
-    neigh_j = jnp.zeros(max_neighbors, dtype=int)
+    max_neighbors += 5000 # Add a buffer for safety
+    neigh_i = jnp.full(max_neighbors, -1, dtype=int)
+    neigh_j = jnp.full(max_neighbors, -1, dtype=int)
     neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
     if topol.excluded_pairs is not None:
@@ -354,7 +354,6 @@ def main(args):
             (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
-        # print((LJ_forces + elec_forces + reconstr_forces) / config.mass)
 
         # Inner rRESPA steps
         for _ in range(config.respa_inner):

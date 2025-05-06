@@ -84,11 +84,11 @@ def simulator(
     ns_nlist = config.ns_nlist 
     dens = config.n_particles / config.box_size.prod()
     max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
-    max_neighbors += 5 # Add a buffer for safety
+    max_neighbors += 5000 # Add a buffer for safety
 
     # Inicialize neighbor list
-    neigh_i = jnp.zeros(max_neighbors, dtype=int)
-    neigh_j = jnp.zeros(max_neighbors, dtype=int)
+    neigh_i = jnp.full(max_neighbors, -1, dtype=int)
+    neigh_j = jnp.full(max_neighbors, -1, dtype=int)
     neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
     if topol.excluded_pairs is not None:
