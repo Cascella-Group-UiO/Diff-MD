@@ -61,7 +61,7 @@ def main(args):
 
     if config.start_temperature:
         key, subkey = random.split(key)
-        velocities = generate_initial_velocities(velocities, subkey, config)
+        velocities = generate_initial_velocities(velocities, subkey, config, system.masses)
     elif config.cancel_com_momentum:
         velocities = cancel_com_momentum(velocities, config)
 

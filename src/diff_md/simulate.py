@@ -492,7 +492,7 @@ def simulator(
 
         # Apply thermostat
         if config.target_temperature:
-            velocities, key = csvr_thermostat(velocities, key, config)
+            velocities, key = csvr_thermostat(velocities, key, config, masses)
 
         # Remove total linear momentum
         if config.cancel_com_momentum:

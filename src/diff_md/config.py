@@ -297,7 +297,7 @@ def get_config(
         Logger.rank0.info(
             f"Model database file '{database}' parse successfully.",
         )
-        db_chi = db_data["nn"]["model"].pop("chi")
+        db_chi = db_data["nn"]["model"].pop("LJ_param")
 
     config_dict = {}
 

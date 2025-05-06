@@ -9,7 +9,7 @@ def cancel_com_momentum(velocities, config):
     return velocities
 
 
-def generate_initial_velocities(velocities, key, config):
+def generate_initial_velocities(velocities, key, config, masses):
     kT_start = config.R * config.start_temperature
     n_particles_ = velocities.shape[0]
 
@@ -20,13 +20,13 @@ def generate_initial_velocities(velocities, key, config):
     com_velocity = jnp.sum(velocities, axis=0)
     velocities = velocities - com_velocity / config.n_particles
 
-    kinetic_energy = 0.5 * jnp.sum(config.mass * jnp.linalg.norm(velocities, axis=1)**2)
+    kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
 
     factor = jnp.sqrt(1.5 * config.n_particles * kT_start / kinetic_energy)
     return velocities * factor
 
 
-# @jax.jit
+@jax.jit
 def csvr_thermostat(velocity, key, config, masses):
     """Canonical sampling through velocity rescaling thermostat
 
