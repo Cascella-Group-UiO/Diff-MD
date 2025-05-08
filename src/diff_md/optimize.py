@@ -73,6 +73,8 @@ def main(args, comm):
 
         # Get gradients from all ranks
         # Gradients are already normalized by autodiff
+
+        # Logger.rank0.debug(f"Gradients before reduction: {grads}")
         total_LJ_param_grad, _ = mpi4jax.allreduce(grads.LJ_param, op=MPI.SUM, comm=comm)
         grads = grads.replace(LJ_param=total_LJ_param_grad)
 

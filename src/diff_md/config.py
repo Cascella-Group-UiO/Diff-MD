@@ -301,6 +301,7 @@ def get_config(
 
     config_dict = {}
 
+
     _, name_idx = np.unique(names, return_index=True)
     unique_names = names[np.sort(name_idx)]
     unique_types = types[np.sort(name_idx)]
@@ -314,6 +315,8 @@ def get_config(
         n = n.decode("utf-8")
         if n not in name_to_type:
             name_to_type[n] = t
+    
+    # name_to_type = {name.decode("utf-8"): type for type, name in enumerate(unique_names)}
 
     config_dict["box_size"] = box_size
     config_dict["range_types"] = jnp.arange(n_types)
@@ -323,7 +326,7 @@ def get_config(
     config_dict["epsl_dict"] = {}
     config_dict["sgm_table"] = {}
     config_dict["epsl_table"] = {}
-    config_dict["type_to_LJ"] = get_type_to_LJ(n_types)
+    config_dict["type_to_LJ"] = (ttlj := get_type_to_LJ(n_types))
 
     config_dict["dielectric_const"] = 1.0  # default
 
@@ -370,13 +373,18 @@ def get_config(
                 sgm[type_0, type_1] = c[2]    
                 epsl[type_0, type_1] = c[3]         
                 
-                LJ_param = LJ_param.at[i].set(c[3])  # TODO: Check if this is not dangerous
             
             config_dict["sgm_dict"] = sgm_dict
             config_dict["epsl_dict"] = epsl_dict
             
             config_dict["epsl_table"] = jnp.array(epsl + epsl.T - np.diag(np.diag(epsl)))
             config_dict["sgm_table"] = jnp.array(sgm + sgm.T - np.diag(np.diag(sgm)))
+
+            LJ_param = LJ_param.at[ttlj].set(config_dict["epsl_table"])  # TODO: Check if this is not dangerous
+
+            # print('NTT:', name_to_type)
+            # print('EPSL table', config_dict["epsl_table"])
+            # print('LJ_param', LJ_param)
 
             config_dict["LJ_param"] = LJ_param
 

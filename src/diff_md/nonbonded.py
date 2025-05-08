@@ -460,7 +460,7 @@ def get_reaction_field_energy_and_forces(
     potentials = jnp.zeros((config.n_particles))
 
     r_vec, r, neigh_i, neigh_j, q_i, q_j, _, _ = elec_param
-    r_vec, r, q_i, q_j, neigh_i, neigh_j = apply_cutoff_elec(r_vec, r, q_i, q_j, neigh_i, neigh_j, config.rc)
+    r_vec, r, q_i, q_j, neigh_i, neigh_j =  apply_cutoff_elec(r_vec, r, q_i, q_j, neigh_i, neigh_j, config.rc)
 
     potential = vmap(value_and_grad(reaction_field_potential), (0, None, None, None, None))
     phi_contributions, grads = potential(r_vec, config.epsilon_rf, config.dielectric_const, config.rc, config.elec_conversion)

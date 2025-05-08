@@ -1,4 +1,4 @@
-from jax import jit, Array
+from jax import jit, Array, lax
 from jax import numpy as jnp
 import numpy as np
 from typing import Tuple
@@ -11,9 +11,6 @@ def nlist(positions, box_size, r_cut, i, j):
     Brute force neighbor list
     At least 10 times slower than Vesin
     """
-
-    i = i.at[...].set(-1)
-    j = j.at[...].set(-1)
 
     positions_i = jnp.expand_dims(positions, axis=1)
 

@@ -80,6 +80,7 @@ def get_LJ_param(
             constraint[ttc] = val
 
     # epsl = jnp.array(epsl + epsl.T - jnp.diag(jnp.diag(epsl)))
+    # print('NN epsl', epsl)
 
     return epsl, constraint
 
@@ -303,8 +304,9 @@ def radius_of_gyration(
         cog = jnp.sum(chains_pos, axis=1) / n_atoms_per_chain
         cog = jnp.expand_dims(cog, axis=1)
 
-        Rg = jnp.sum(chain_masses * jnp.linalg.norm(chains_pos - cog, axis=2) ** 2, axis=1) / total_mass
-        
+        Rg2 = jnp.sum(chain_masses * jnp.linalg.norm(chains_pos - cog, axis=2) ** 2, axis=1) / total_mass
+        Rg = jnp.sqrt(Rg2)
+
         mean_Rg += jnp.sum(Rg) / n_chains
 
     # Calculate error

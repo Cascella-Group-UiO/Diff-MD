@@ -218,7 +218,6 @@ def main(args):
             LJ_forces, pair_params, config
         )
 
-
     # print('Mass:', config.mass.shape)
     # print('Velocities:', velocities.shape)
     # print('Norm velocities:', jnp.linalg.norm(velocities, axis=1).shape)
@@ -336,6 +335,8 @@ def main(args):
             # neigh_i = neigh_i.astype(jnp.int32)
             # neigh_j = neigh_j.astype(jnp.int32)
 
+            neigh_i = jnp.full(max_neighbors, -1, dtype=int)
+            neigh_j = jnp.full(max_neighbors, -1, dtype=int)
             neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
             
             if topol.excluded_pairs is not None:
@@ -345,9 +346,6 @@ def main(args):
             LJ_forces = zero_forces(LJ_forces, restr_atoms)
             elec_forces = zero_forces(elec_forces, restr_atoms)
             # reconstructed_forces = zero_forces(reconstructed_forces, restr_atoms)
-
-        # print("AAAAAAAAAAAAAA")
-        # print(((LJ_forces + elec_forces + reconstr_forces) / config.mass).shape)
 
         velocities = integrate_velocity(
             velocities,

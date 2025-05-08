@@ -49,6 +49,8 @@ def simulator(
     # Dict to save trajectory
     trj = {}
 
+    # print(epsl_table)
+
     # Arrays to store dihedral angle information for fitting 2d distribution
     # if protein_flag:
     #     dihedral_phi = jnp.empty(0)
@@ -58,7 +60,7 @@ def simulator(
 
     if start_temperature:
         key, subkey = jax.random.split(key)
-        velocities = generate_initial_velocities(velocities, subkey, config)
+        velocities = generate_initial_velocities(velocities, subkey, config, masses)
         velocities = cancel_com_momentum(velocities, config)
 
     positions = jnp.mod(positions, config.box_size)
@@ -89,7 +91,8 @@ def simulator(
     # Inicialize neighbor list
     neigh_i = jnp.full(max_neighbors, -1, dtype=int)
     neigh_j = jnp.full(max_neighbors, -1, dtype=int)
-    neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+    neigh_i, neigh_j = jax.lax.stop_gradient(nlist(positions, config.box_size, rv, neigh_i, neigh_j))
+    # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -233,20 +236,11 @@ def simulator(
     for step in range(1, n_steps + 1):
         # First outer rRESPA velocity step
         if step%ns_nlist == 0:
-            
-            # print(f'i:\n{neigh_i}\nj:\n{neigh_j}')
+            neigh_i = jnp.full(max_neighbors, -1, dtype=int)
+            neigh_j = jnp.full(max_neighbors, -1, dtype=int)
+            neigh_i, neigh_j = jax.lax.stop_gradient(nlist(positions, config.box_size, rv, neigh_i, neigh_j))
 
-            # probe_idx = 1
-            
-            # j_idx = jnp.where(neigh_i == probe_idx)[0]
-            # j = jnp.take(neigh_j, j_idx)
-
-            # i_idx = jnp.where(neigh_j == probe_idx)[0]
-            # i = jnp.take(neigh_i, i_idx)
-
-            # print(f'Neigh. of particle {probe_idx}: {jnp.concatenate([i, j])}')
-
-            neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+            # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
             if topol.excluded_pairs is not None:
                 neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -258,7 +252,7 @@ def simulator(
 
         velocities = integrate_velocity(
             velocities,
-            (LJ_forces + elec_forces + reconstr_forces) / 1.0,
+            (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
 
@@ -389,8 +383,6 @@ def simulator(
 
             # Calculate pressure
             kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
-            # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
-            
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             pressure = (
                 kinetic_pressure
@@ -416,6 +408,7 @@ def simulator(
                     key,
                 )
 
+
         if config.coulombtype and charges is not None:
             pair_params = apply_nlist_elec(
                 neigh_i, 
@@ -427,7 +420,7 @@ def simulator(
                 epsl_table, 
                 types
             )
-            if topol.excluded_pairs is not None:
+            if topol.excluded_pairs is not None: # This should be applied when we don't have charges too
                 excl_pair_params = apply_nlist_elec(
                     topol.excluded_pairs[0],
                     topol.excluded_pairs[1],
@@ -486,7 +479,7 @@ def simulator(
         # Second outer rRESPA velocity step
         velocities = integrate_velocity(
             velocities,
-            (LJ_forces + elec_forces + reconstr_forces) / 1.0,
+            (LJ_forces + elec_forces + reconstr_forces) / config.mass,
             config.outer_ts,
         )
 
