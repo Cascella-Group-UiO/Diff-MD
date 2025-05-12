@@ -83,7 +83,7 @@ def main(args):
     elec_energy = 0.0
 
     # Initialize pressure
-    bond_pressure, angle_pressure, dihedral_pressure, field_pressure = 0, 0, 0, 0
+    bond_pressure, angle_pressure, dihedral_pressure = 0, 0, 0
 
     # Make neighbor list
     rv = config.rv 
@@ -253,9 +253,10 @@ def main(args):
 
         if config.pressure or config.barostat:
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
+            # TODO: Add elec. contribution
             pressure = (
                 kinetic_pressure
-                + (field_pressure - LJ_energy - elec_energy)
+                + LJ_pressure
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
@@ -473,9 +474,10 @@ def main(args):
             kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)    
             # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
+            # TODO: Add elec. contribution
             pressure = (
                 kinetic_pressure
-                + (field_pressure - field_energy - elec_energy)
+                + LJ_pressure
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
@@ -591,9 +593,10 @@ def main(args):
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
                 if config.pressure or config.barostat:
                     kinetic_pressure = 2.0 / 3.0 * kinetic_energy
+                    # TODO: Add elec. contribution
                     pressure = (
                         kinetic_pressure
-                        + (field_pressure - LJ_energy - elec_energy)
+                        + LJ_pressure
                         + bond_pressure
                         + angle_pressure
                         + dihedral_pressure
@@ -675,9 +678,10 @@ def main(args):
 
         if config.pressure or config.barostat:
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
+            # TODO: Add elec. contribution
             pressure = (
-                kinetic_pressure
-                + (field_pressure - field_energy - elec_energy)
+                kinetic_pressure 
+                + LJ_pressure
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure

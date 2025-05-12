@@ -384,7 +384,7 @@ def simulator(
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             pressure = (
                 kinetic_pressure
-                + (LJ_pressure - LJ_energy - elec_energy) # 
+                + LJ_pressure # 
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
