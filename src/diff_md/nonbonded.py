@@ -44,7 +44,9 @@ def get_LJ_energy_and_forces(
     return jnp.sum(energy), forces
 
 
+@jit
 def get_LJ_energy_and_forces_npt(
+    forces,
     pair_params: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config
 ) -> Tuple[float, Array]:

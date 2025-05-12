@@ -161,6 +161,8 @@ class Config:
             elif coulombtype == 2:
                 prefac = elec_conversion * (3 * erf / (2 * erf + er)) / (2 * rc)
                 self_energy = prefac * 0.5 * (jnp.sum(charges * charges) - 1/erf * jnp.sum(charges) ** 2)
+            else:
+                self_energy = None
             return self_energy   
 
         step = args["box_size"] / (2 * jnp.pi * args["mesh_size"])
@@ -484,7 +486,7 @@ def get_config(
 
         if config_dict["coulombtype"] == 0:
             err_str = "Charged particles are present in the system but coulombtype = no. Electrostatic interactions will not be calculated."
-            Logger.rank0.error(err_str)
+            Logger.rank0.info(err_str)
 
     # if charges is not None:
     #     if not jnp.isclose(tot_charge := jnp.sum(charges), 0):

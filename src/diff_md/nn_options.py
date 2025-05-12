@@ -210,7 +210,7 @@ def get_system_options(
         dir = system.name
         # Get data for density profile
         if "target_density" in args["system_args"][dir]:
-            filename, ext = os.path.splitext(args["loss"]["target_density"])
+            filename, ext = os.path.splitext(args["system_args"][dir]["target_density"])
             file_path = f"{dir}/{filename}{ext}"
             if ext == ".npy":
                 reference = jnp.array(np.load(file_path))
@@ -235,18 +235,22 @@ def get_system_options(
             ]
         
         # Get data for Radius of gyration
-        n_chains = args["system_args"][dir]["n_chains"]
-        chain = np.bytes_(args["system_args"][dir].pop("resname"))
-        chain_indices = jnp.where(system.resnames == chain)[0]
-        n_atoms_per_chain = int(len(chain_indices) / n_chains)
-        
-        chain_indices = jnp.reshape(chain_indices, (n_chains, n_atoms_per_chain))
-        chain_masses = jnp.take(system.masses, chain_indices)
-        
-        args["system_args"][dir]["n_atoms_per_chain"] = n_atoms_per_chain
-        args["system_args"][dir]["chain_indices"] = chain_indices
-        args["system_args"][dir]["chain_masses"] = chain_masses
+        if args["loss"]["name"] == "radius_of_gyration":
+            n_chains = args["system_args"][dir]["n_chains"]
+            chain = np.bytes_(args["system_args"][dir].pop("resname"))
+            chain_indices = jnp.where(system.resnames == chain)[0]
+            n_atoms_per_chain = int(len(chain_indices) / n_chains)
+            
+            chain_indices = jnp.reshape(chain_indices, (n_chains, n_atoms_per_chain))
+            chain_masses = jnp.take(system.masses, chain_indices)
+            
+            args["system_args"][dir]["n_atoms_per_chain"] = n_atoms_per_chain
+            args["system_args"][dir]["chain_indices"] = chain_indices
+            args["system_args"][dir]["chain_masses"] = chain_masses
 
     system_options = System_options(args["system_args"])
+
+    # print("AAAAAAAAAAA")
+    # print(args["system_args"])
 
     return system_options, toml_copy

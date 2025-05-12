@@ -8,13 +8,14 @@ import numpy as onp
 import optax
 import orbax.checkpoint
 from flax.training import orbax_utils
-from jax import value_and_grad
+from jax import value_and_grad, debug
+import jax.numpy as jnp
 from mpi4py import MPI
 
 from .file_io import OutDataset, save_params, store_static, write_full_trajectory
 from .input_parser import System
 from .logger import Logger
-from .losses import get_chi, get_LJ_param
+from .losses import get_LJ_param
 from .nn_options import get_training_parameters, get_system_options
 from .simulate import simulator
 

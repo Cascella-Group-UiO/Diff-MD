@@ -315,7 +315,7 @@ def prepare_bonds(molecules, topol, config, training=None):
         jnp.array(restraints)
     )
 
-    if n_bonds != 0:
+    if n_bonds != 0 and config.nrexcl > 0:
         excluded_pairs = find_excluded_pairs(bonds_atom1, bonds_atom2, config.nrexcl, config.n_particles)
     else:
         excluded_pairs = None

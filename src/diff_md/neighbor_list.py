@@ -58,7 +58,6 @@ def apply_cutoff(
     # Update neighbor list
     neigh_i_mod = jnp.take(neigh_i, cut_indx)
     neigh_j_mod = jnp.take(neigh_j, cut_indx)
-    
 
     return r_values, sigma_values, epsilon_values, neigh_i_mod, neigh_j_mod
 
@@ -148,8 +147,7 @@ def apply_nlist_elec(
 
     return r_vec, r, neigh_i, neigh_j, q_i, q_j, s_ij, e_ij
 
-# NOTE: Try to jit this function
-# @jit
+@jit
 def exclude_bonded_neighbors(neigh_i, neigh_j, bonded_i, bonded_j):
     bonded_pairs = jnp.vstack((jnp.column_stack((bonded_i, bonded_j)),
                                jnp.column_stack((bonded_j, bonded_i))))
@@ -158,8 +156,9 @@ def exclude_bonded_neighbors(neigh_i, neigh_j, bonded_i, bonded_j):
     # Create a mask that keeps only non-bonded neighbors
     # Compare each neighbor pair to all bonded pairs
     mask = ~jnp.any(jnp.all(neighbor_pairs[:, None, :] == bonded_pairs, axis=-1), axis=1)
-
-    filtered_neigh_i = neigh_i[mask]
-    filtered_neigh_j = neigh_j[mask]
+    
+    indx = jnp.where(mask, size=mask.shape[0], fill_value=-1)[0]
+    filtered_neigh_i = jnp.take(neigh_i, indx)
+    filtered_neigh_j = jnp.take(neigh_j, indx)
 
     return filtered_neigh_i, filtered_neigh_j

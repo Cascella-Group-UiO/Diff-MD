@@ -597,7 +597,7 @@ def main(args):
                         + bond_pressure
                         + angle_pressure
                         + dihedral_pressure
-                    ) / config.volumebarostat
+                    ) / config.volume
                 else:
                     pressure = 0.0
 

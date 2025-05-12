@@ -91,8 +91,8 @@ def simulator(
     # Inicialize neighbor list
     neigh_i = jnp.full(max_neighbors, -1, dtype=int)
     neigh_j = jnp.full(max_neighbors, -1, dtype=int)
-    neigh_i, neigh_j = jax.lax.stop_gradient(nlist(positions, config.box_size, rv, neigh_i, neigh_j))
-    # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+    # neigh_i, neigh_j = jax.lax.stop_gradient(nlist(positions, config.box_size, rv, neigh_i, neigh_j))
+    neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -238,9 +238,7 @@ def simulator(
         if step%ns_nlist == 0:
             neigh_i = jnp.full(max_neighbors, -1, dtype=int)
             neigh_j = jnp.full(max_neighbors, -1, dtype=int)
-            neigh_i, neigh_j = jax.lax.stop_gradient(nlist(positions, config.box_size, rv, neigh_i, neigh_j))
-
-            # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+            neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
             if topol.excluded_pairs is not None:
                 neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
