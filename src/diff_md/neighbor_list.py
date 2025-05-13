@@ -50,6 +50,8 @@ def apply_cutoff(
 
     # Apply the mask using jnp.take
     r_values = jnp.take(r, cut_indx, axis=0)
+    r_values = jnp.where(jnp.reshape(cut_indx, (-1, 1))==-1, 1, r_values)
+
     sigma_values = jnp.take(sigma, cut_indx)
     epsilon_values = jnp.take(epsilon, cut_indx)
     # Set epsilon to 0 for pair interactions outside the cutoff
@@ -83,6 +85,8 @@ def apply_cutoff_elec(
 
     # Apply the mask using jnp.take
     r_values = jnp.take(r, cut_indx, axis=0)
+    r_values = jnp.where(jnp.reshape(cut_indx, (-1, 1))==-1, 1, r_values)
+    
     r_norm = jnp.take(r_norm, cut_indx)
     q_i = jnp.take(q_i, cut_indx)
     q_j = jnp.take(q_j, cut_indx)

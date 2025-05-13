@@ -215,8 +215,6 @@ def density_and_apl(
     n_frames_adj = n_frames - n_skip
     xy_apl = 0.0
     kde_density = jnp.zeros((config.n_types, n_bins))
-    print('ref.', kde_density.shape)
-    print('targ', target_density.shape)
     bandwidth = float(width_ratio * bin_size)
     z_length = z_range[-1] - z_range[0] + bin_size
 

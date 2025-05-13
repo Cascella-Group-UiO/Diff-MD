@@ -29,7 +29,11 @@ from .neighbor_list import (
     apply_nlist_elec, 
     exclude_bonded_neighbors
 )
-from vesin import NeighborList
+
+from jax import config 
+
+config.update("jax_debug_nans", True)
+# config.update('jax_enable_x64', True)
 
 # @jit # takes too much time and memory to compile, at least on cpu
 def simulator(
@@ -207,7 +211,8 @@ def simulator(
     # Save step 0 to trajectory
     if config.n_print > 0:
         # NOTE: we don't need to save all this stuff for the differentiable MD
-        kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
+        kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(velocities**2, axis=1))
+        #kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
         # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
         temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
         trj["angle energy"] = [angle_energy]
@@ -494,8 +499,8 @@ def simulator(
         if config.n_print > 0:
             if onp.mod(step, config.n_print) == 0 and step != 0:
                 frame = step // config.n_print
-                kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
-                # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
+                kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(velocities**2, axis=1))
+                # kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
                 trj["angle energy"].append(angle_energy)
                 trj["bond energy"].append(bond_energy)

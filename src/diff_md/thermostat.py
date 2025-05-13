@@ -20,7 +20,8 @@ def generate_initial_velocities(velocities, key, config, masses):
     com_velocity = jnp.sum(velocities, axis=0)
     velocities = velocities - com_velocity / config.n_particles
 
-    kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
+    # kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
+    kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(velocities**2, axis=1))
 
     factor = jnp.sqrt(1.5 * config.n_particles * kT_start / kinetic_energy)
     return velocities * factor
@@ -43,10 +44,9 @@ def csvr_thermostat(velocity, key, config, masses):
         group_velocity -= com_velocity
 
         dof = 3 * group_n_particles
-
-        # print('mass* vel', (masses * jnp.linalg.norm(group_velocity, axis=1)**2).shape)
-        # print(jnp.linalg.norm(group_velocity, axis=1))
-        kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(group_velocity, axis=1)**2)
+        
+        kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(group_velocity**2, axis=1))
+        # kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(group_velocity, axis=1)**2)
 
         target_kinetic = 0.5 * dof * config.R * config.target_temperature
         c = jnp.exp(-(config.outer_ts) / config.tau_t)
