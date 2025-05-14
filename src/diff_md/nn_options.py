@@ -104,7 +104,7 @@ def get_training_parameters(
 
         if start_value:
             model_dict["type_to_LJ"] = jnp.array(list(start_value.keys()))
-            model_dict["LJ_param"] = jnp.array(list(start_value.values()), dtype=jnp.float_)
+            model_dict["LJ_param"] = jnp.array(list(start_value.values())) #, dtype=jnp.float_)
         else:
             model_dict["LJ_param"] = jnp.array(epsl[np.triu_indices(n_types)])
 

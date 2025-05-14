@@ -12,48 +12,6 @@ from .models import GeneralModel
 from .simulate import simulator
 
 
-def _fill_diagonal(array, value):
-    i, j = jnp.diag_indices(min(array.shape[-2:]))
-    return array.at[..., i, j].set(value)
-
-
-def get_chi(
-    model: GeneralModel, types: Array, config: Config
-) -> Tuple[Array, dict[int, Array], dict[int, Array]]:
-    assert model.chi is not None, "GeneralModel.chi should not be 'None' here."
-
-    type_mask = {}
-    chi_constraint = {}
-    chi = jnp.zeros((config.n_types, config.n_types))
-    
-    # Preprocessing when only specifying a subset of chi values to train
-    if model.type_to_chi.ndim == 1:
-        dummy_chi = config.chi
-        for ttc, c in zip(model.type_to_chi, model.chi):
-            if ttc in config.type_to_chi:
-                dummy_chi = dummy_chi.at[ttc].set(c)
-
-    for i, ti in enumerate(config.unique_types):
-        type_mask[ti] = jnp.where(types == ti, 1.0, 0.0).reshape(-1, 1)
-
-        if model.type_to_chi.ndim == 1:
-            chi = chi.at[i].set(dummy_chi[config.type_to_chi[i]])
-        else:
-            chi = chi.at[i].set(model.chi[model.type_to_chi[ti, config.unique_types]])
-
-    # Set diagonal elements to zero, to prevent learning self interactions
-    if not model.self_interaction:
-        chi = _fill_diagonal(chi, 0.0)
-
-    # Parse constraints
-    for ttc, val in model.chi_constraints.items():
-        if ttc in config.type_to_chi:
-            chi_constraint[ttc] = val
-
-    chi = chi.reshape(config.n_types, config.n_types, 1, 1, 1)
-    return chi, chi_constraint, type_mask
-
-
 def get_LJ_param(
     model: GeneralModel, config: Config
 ) -> Tuple[Array, dict[int, Array]]:
