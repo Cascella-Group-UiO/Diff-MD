@@ -122,15 +122,9 @@ def cubic_constraint(chi, k, constraints):
         jnp.array([jnp.abs(chi[ttc] - val) ** 3 for ttc, val in constraints.items()]),
     )
 
-# @jit
-# def boundary_constraint(chi, delta):
-#     boundary = 1 / delta
-#     # Here chi is a symmetric matrix, so we divide by 2 to avoid double counting
-#     return jnp.sum(0.5 * jnp.abs(chi * boundary) ** 3)
-
 
 @jit
-def boundary_constraint(epsl, C=50, boundary=500):
+def boundary_constraint(epsl, C=5000, boundary=500):
     return 0.5 * jnp.sum(C * jax.nn.sigmoid(-epsl*boundary))
 
 
