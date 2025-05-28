@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Tuple
 
+import jax
 import jax.numpy as jnp
 import mpi4jax
 from jax import Array, jit
@@ -127,9 +128,11 @@ def cubic_constraint(chi, k, constraints):
 #     # Here chi is a symmetric matrix, so we divide by 2 to avoid double counting
 #     return jnp.sum(0.5 * jnp.abs(chi * boundary) ** 3)
 
+
 @jit
-def boundary_constraint(epsl, boundary=1000, C=100):
-   return jnp.sum(C / (1 + jnp.exp(epsl * boundary))) * 0.5
+def boundary_constraint(epsl, C=50, boundary=500):
+    return 0.5 * jnp.sum(C * jax.nn.sigmoid(-epsl*boundary))
+
 
 @jit
 def lateral_density_kde(
