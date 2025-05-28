@@ -121,13 +121,15 @@ def cubic_constraint(chi, k, constraints):
         jnp.array([jnp.abs(chi[ttc] - val) ** 3 for ttc, val in constraints.items()]),
     )
 
+# @jit
+# def boundary_constraint(chi, delta):
+#     boundary = 1 / delta
+#     # Here chi is a symmetric matrix, so we divide by 2 to avoid double counting
+#     return jnp.sum(0.5 * jnp.abs(chi * boundary) ** 3)
 
 @jit
-def boundary_constraint(chi, delta):
-    boundary = 1 / delta
-    # Here chi is a symmetric matrix, so we divide by 2 to avoid double counting
-    return jnp.sum(0.5 * jnp.abs(chi * boundary) ** 3)
-
+def boundary_constraint(epsl, C=10, alpha=1000):
+   return jnp.sum(C / (1 + jnp.exp(epsl * alpha))) * 0.5
 
 @jit
 def lateral_density_kde(
@@ -239,6 +241,10 @@ def radius_of_gyration(
     types = jnp.array(system.types)
 
     epsl_table, constraint = get_LJ_param(model, system.config)
+    print("AAAAAAAAAAAAA")
+    print(epsl_table)
+    print(epsl_table.shape)
+
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
