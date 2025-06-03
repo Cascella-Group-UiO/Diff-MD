@@ -124,8 +124,8 @@ def cubic_constraint(chi, k, constraints):
 
 
 @jit
-def boundary_constraint(epsl, C=5000, boundary=500):
-    return 0.5 * jnp.sum(C * jax.nn.sigmoid(-epsl*boundary))
+def boundary_constraint(epsl, C=5000, S=500):
+    return 0.5 * jnp.sum(C * jax.nn.sigmoid(-epsl*S))
 
 
 @jit
@@ -150,7 +150,7 @@ def density_and_apl(
     model, system, key, start_temperature, comm,
     z_range, com_type, n_lipids, target_density, target_apl,    # System specific arguments
     metric, density_weight=1.0, k_constraint=0.01, apl_weight=1.0, width_ratio=1.0,   # General arguments for all systems (nn_options.loss_args)
-    boundary=None, constraint=None,
+    boundary_S=None, boundary_C=None, constraint=None,
 ):
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
     types = jnp.array(system.types)
@@ -217,8 +217,8 @@ def density_and_apl(
         error += constraint(model.LJ_param, k_constraint, constraint)
 
     # Prevent chi from reaching unphysical values (hopefully)
-    if boundary:
-        error += boundary_constraint(epsl_table, boundary)
+    if boundary_S:
+        error += boundary_constraint(epsl_table, boundary_C, boundary_S)
 
     return error, (
         {"density": kde_density, "area per lipid": mean_apl},
@@ -233,7 +233,7 @@ def radius_of_gyration(
     model, system, key, start_temperature, comm,
     n_chains, n_atoms_per_chain, chain_indices, chain_masses,   # arguments from unpacked reference dict
     metric, target_rg, rg_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
-    boundary=None, constraint=None,
+    boundary_S=None, boundary_C=None, constraint=None,
 ):
     types = jnp.array(system.types)
 
@@ -276,8 +276,8 @@ def radius_of_gyration(
         error += constraint(model.LJ_param, k_constraint, constraint)
 
     # Prevent interaction parameter from reaching unphysical values (hopefully)
-    if boundary:
-        error += boundary_constraint(epsl_table, boundary)
+    if boundary_C:
+        error += boundary_constraint(epsl_table, boundary_C, boundary_S)
 
     return error, (
         {"radius of gyration": mean_Rg},
