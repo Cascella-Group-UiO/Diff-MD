@@ -18,7 +18,7 @@ def get_LJ_param(
 ) -> Tuple[Array, dict[int, Array]]:
     assert model.LJ_param is not None, "GeneralModel.chi should not be 'None' here."
 
-    constraint = {}
+    epsl_constraint = {}
     epsl = jnp.zeros((config.n_types, config.n_types)) 
 
     # Preprocessing when only specifying a subset of values to train
@@ -36,12 +36,12 @@ def get_LJ_param(
     # Parse constraints
     for ttc, val in model.epsl_constraints.items():
         if ttc in config.type_to_LJ:
-            constraint[ttc] = val
+            epsl_constraint[ttc] = val
 
     # epsl = jnp.array(epsl + epsl.T - jnp.diag(jnp.diag(epsl)))
     # print('NN epsl', epsl)
 
-    return epsl, constraint
+    return epsl, epsl_constraint
 
 
 @jit
@@ -237,7 +237,7 @@ def radius_of_gyration(
 ):
     types = jnp.array(system.types)
 
-    epsl_table, constraint = get_LJ_param(model, system.config)
+    epsl_table, epsl_constraint = get_LJ_param(model, system.config)
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
@@ -273,7 +273,7 @@ def radius_of_gyration(
 
     # Error from constraints
     if constraint:
-        error += constraint(model.LJ_param, k_constraint, constraint)
+        error += constraint(model.LJ_param, k_constraint, epsl_constraint)
 
     # Prevent interaction parameter from reaching unphysical values (hopefully)
     if boundary_C:
