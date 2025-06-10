@@ -127,7 +127,7 @@ def get_training_parameters(
         for optim in args["optimizer"]:
             fun = getattr(optax, optim.pop("name"))
             optim_list.append(fun(**optim))
-        opt = optax.chain(*optim_list)
+        opt = optax.chain(*optim_list, optax.keep_params_nonnegative())  # Lennard-Jones parameters should not be negative
     else:
         fun = getattr(optax, args["optimizer"].pop("name"))
 

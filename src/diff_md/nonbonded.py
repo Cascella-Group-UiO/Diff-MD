@@ -69,7 +69,8 @@ def get_LJ_energy_and_forces_npt(
     energy = energies - e_cut
     energy = jnp.nan_to_num(energy, nan=0.0)
 
-    pressure = jnp.sum(-grads * r_vec)
+    pressure = jnp.sum(-grads * r_vec, axis=0)
+    # print(pressure.shape)
 
     return jnp.sum(energy), forces, pressure
 
@@ -434,7 +435,7 @@ def get_rf_excluded_pairs_energy_and_forces(
     forces = forces.at[neigh_i].add(-grads*q_i*q_j)
     forces = forces.at[neigh_j].add(grads*q_i*q_j)
 
-    q_i = jnp.squeeze(q_i)
+    q_i = jnp.squeeze(q_i) # TODO: Try not to use this
     q_j = jnp.squeeze(q_j)
 
     # Potential
@@ -446,7 +447,7 @@ def get_rf_excluded_pairs_energy_and_forces(
     # Energy
     energy += jnp.sum(phi_contributions*q_j*q_i)
 
-    return energy, potential, forces, grads, r_vec, q_i, q_j
+    return energy, potential, forces, grads, r_vec, jnp.expand_dims(q_i, 1), jnp.expand_dims(q_j, 1)
 
 
 @jit
@@ -540,7 +541,7 @@ def get_reaction_field_energy_and_forces_npt(
           potentials,
           energy,
       )
-      pressure += jnp.sum(-grads*q_i*q_j* r_vec, axis=0)
+      pressure += jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
 
     return energy-config.self_energy, potential, forces, pressure
 

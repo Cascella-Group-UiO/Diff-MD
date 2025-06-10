@@ -83,7 +83,7 @@ def main(args):
     elec_energy = 0.0
 
     # Initialize pressure
-    bond_pressure, angle_pressure, dihedral_pressure = 0, 0, 0
+    bond_pressure, angle_pressure, dihedral_pressure, LJ_pressure, elec_pressure = 0, 0, 0, 0, 0
 
     # Make neighbor list
     rv = config.rv 
@@ -260,6 +260,7 @@ def main(args):
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
+                + elec_pressure
             ) / config.volume
         else:
             pressure = 0.0
@@ -457,7 +458,7 @@ def main(args):
                         elec_energy, 
                         elec_potential, 
                         elec_forces,
-                        ele_pressure
+                        elec_pressure
                     ) = get_reaction_field_energy_and_forces_npt(
                         elec_forces, pair_params, config, excl_pair_params
                     )
@@ -481,6 +482,7 @@ def main(args):
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
+                + elec_pressure
             ) / config.volume
 
             # Call barostat
@@ -600,6 +602,7 @@ def main(args):
                         + bond_pressure
                         + angle_pressure
                         + dihedral_pressure
+                        + elec_pressure
                     ) / config.volume
                 else:
                     pressure = 0.0
@@ -685,6 +688,7 @@ def main(args):
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
+                + elec_pressure
             ) / config.volume
         else:
             pressure = 0.0
