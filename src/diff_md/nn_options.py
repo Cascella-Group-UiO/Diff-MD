@@ -129,7 +129,8 @@ def get_training_parameters(
             optim_list.append(fun(**optim))
         opt = optax.chain(*optim_list, optax.keep_params_nonnegative())  # Lennard-Jones parameters should not be negative
     else:
-        fun = getattr(optax, args["optimizer"].pop("name"), optax.keep_params_nonnegative())
+        # fun = optax.chain(args["optimizer"].pop("name"), optax.keep_params_nonnegative())
+        fun = getattr(optax, args["optimizer"].pop("name"))
 
         # Check if we have learning rate scheduling
         if isinstance(args["optimizer"]["learning_rate"], dict):
@@ -138,7 +139,8 @@ def get_training_parameters(
             scheduler = scheduler(**learning_rate)
             opt = fun(learning_rate=scheduler, **args["optimizer"])
         else:
-            opt = fun(**args["optimizer"])
+            # opt = fun(**args["optimizer"])
+            opt = optax.chain(fun(**args["optimizer"]), optax.keep_params_nonnegative())
 
     batch_size = 1
     if "batch_size" in args and args["batch_size"] > 0:
