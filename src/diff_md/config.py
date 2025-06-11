@@ -155,12 +155,13 @@ class Config:
         **args: Any,
     ) -> Self:
         def elec_self_energy(charges, elec_conversion, coulombtype, sigma, erf, er, rc):
-            if coulombtype == 1:
+            if coulombtype == 1: # PME
                 prefac = elec_conversion * jnp.sqrt(1.0 / (2.0 * jnp.pi * sigma * sigma))
                 self_energy = prefac * jnp.sum(charges * charges)
-            elif coulombtype == 2:
-                prefac = elec_conversion * (3 * erf / (2 * erf + er)) / (2 * rc)
-                self_energy = prefac * 0.5 * (jnp.sum(charges * charges) - 1/erf * jnp.sum(charges) ** 2)
+            elif coulombtype == 2: # Reaction field
+                # prefac = elec_conversion * (3 * erf / (2 * erf + er)) / (2 * rc)
+                prefac = elec_conversion * (3 * erf / (2 * erf + er)) / rc 
+                self_energy = prefac * 0.5 * (jnp.sum(charges * charges) - (1/erf) * (jnp.sum(charges) ** 2))
             else:
                 self_energy = None
             return self_energy   
@@ -184,6 +185,7 @@ class Config:
         # window = fourier_window(m_grid, args["sigma"])
         elec_conversion = 138.935458 / args["dielectric_const"]
         args["elec_conversion"] = elec_conversion
+        
         elec_const = 4.0 * jnp.pi * elec_conversion
         # elec_const = elec_transfer_constant(m_grid, elec_conversion)
         empty_mesh = jnp.zeros(args["mesh_size"])

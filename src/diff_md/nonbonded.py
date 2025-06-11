@@ -427,7 +427,7 @@ def get_rf_excluded_pairs_energy_and_forces(
 ) -> Tuple[float, float, Array]: 
     r_vec, _, neigh_i, neigh_j, q_i, q_j, _, _ = excl_pair_param
 
-    func = vmap(value_and_grad(reaction_field_potential), (0, None, None, None, None))
+    func = vmap(value_and_grad(rf_potential_excluded_pairs), (0, None, None, None, None))
     phi_contributions, grads = func(r_vec, config.epsilon_rf, config.dielectric_const, config.rc, config.elec_conversion)
 
     # Forces
@@ -505,7 +505,7 @@ def get_reaction_field_energy_and_forces_npt(
 ) -> Tuple[float, float, Array]:
 
     energy = 0.0
-    forces = forces.at[...].set(0.0)
+    forces = forces.at[...].set(0.0) # TODO: Test if this is sllow
     potentials = jnp.zeros((config.n_particles))
 
     r_vec, r, neigh_i, neigh_j, q_i, q_j, _, _ = elec_param
