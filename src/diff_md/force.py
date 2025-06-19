@@ -195,55 +195,6 @@ def get_impropers_energy_and_forces(
     return jnp.sum(energies), forces
 
 
-# https://doi.org/10.1021/ct400219n
-# @jit
-# def triplet_angle(ra, rb, rc, box):
-#     ab = ra - rb
-#     cb = rc - rb
-
-#     ab -= box * jnp.around(ab / box)
-#     cb -= box * jnp.around(cb / box)
-
-#     u_ab = ab / jnp.linalg.norm(ab)
-#     u_cb = cb / jnp.linalg.norm(cb)
-
-#     cos_theta = jnp.dot(u_ab, u_cb)
-
-#     # condition = cos_theta * cos_theta < 1.0
-#     # safe_cos = jnp.where(condition, cos_theta, 0.0)
-#     return jnp.arccos(cos_theta)
-
-
-# def cos_pot_series(phi, a, n):
-#     return a * jnp.cos(phi) ** n
-
-
-# def cbt_potential(ra, rb, rc, rd, k, coeff, box):
-#     g = rb - rc
-#     h = rd - rc
-
-#     f -= box * jnp.around(f / box)
-#     g -= box * jnp.around(g / box)
-#     h -= box * jnp.around(h / box)
-
-#     v = jnp.cross(f, g)
-#     w = jnp.cross(h, g)
-#     gn = jnp.linalg.norm(g)
-
-#     cosphi = jnp.dot(v, w)
-#     sinphi = jnp.dot(w, f) * gn
-
-#     cond = jnp.sum(jnp.logical_not(jnp.array([cosphi, sinphi]))) == 2
-#     safe_cos = jnp.where(cond, 1.0, cosphi)
-#     phi = jnp.where(cond, 0.0, jnp.arctan2(sinphi, safe_cos))
-#
-#     theta_0 = get_triplet_angle(ra, rb, rc, box)
-#     theta_1 = get_triplet_angle(rb, rc, rd, box)
-#     series = vmap(cos_pot_series, (None, 0, 0))
-#     cos_term = jnp.sum(series(phi, coeff, jnp.arange(4)))
-#     return k * jnp.sin(theta_0) ** 3 * jnp.sin(theta_1) ** 3 * cos_term
-
-
 # Dipole reconstruction
 # @jit
 def theta_ang(gamma):

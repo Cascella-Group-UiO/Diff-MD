@@ -9,7 +9,6 @@ def nlist(positions, box_size, r_cut, i, j):
 
     """
     Brute force neighbor list
-    At least 10 times slower than Vesin
     """
 
     positions_i = jnp.expand_dims(positions, axis=1)
@@ -18,8 +17,7 @@ def nlist(positions, box_size, r_cut, i, j):
     r_vec = r_vec - box_size * jnp.around(r_vec / box_size)
     r = jnp.linalg.norm(r_vec, axis=2)
 
-    # mask = jnp.less(r, r_cut)
-    mask = jnp.triu(r < r_cut, k=1)
+    mask = jnp.triu(r <= r_cut, k=1)
 
     i_idx, j_idx = jnp.where(mask, size=i.shape[0], fill_value=-1)
 
@@ -41,7 +39,9 @@ def apply_cutoff(
 ) -> Tuple[float, Array]:
 
     # Use jnp.less to create a boolean mask
-    mask = jnp.less(r_norm, rc)
+    # mask = jnp.less(r_norm, rc)
+    mask = jnp.less_equal(r_norm, rc)
+
     # Account for padding in nlists
     mask = jnp.where(neigh_i==-1, False, mask)
 
@@ -76,7 +76,9 @@ def apply_cutoff_elec(
 ) -> Tuple[float, Array]:
 
     # Use jnp.less to create a boolean mask
-    mask = jnp.less(r_norm, rc)
+    # mask = jnp.less(r_norm, rc)
+    mask = jnp.less_equal(r_norm, rc)
+
     # Account for padding in nlists
     mask = jnp.where(neigh_i==-1, False, mask)
 

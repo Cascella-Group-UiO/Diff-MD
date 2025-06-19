@@ -1,6 +1,7 @@
 import datetime
 import logging
 
+import jax
 from jax import config as jax_config
 import jax.numpy as jnp
 import numpy as onp
@@ -46,7 +47,7 @@ def main(args):
     cdtype = jnp.complex64
     if args.double_precision:
         # NOTE: this is going to be deprecated in future versions of jax
-        jax_config.update("jax_enable_x64", True)
+        jax.config.update("jax_enable_x64", True)
         cdtype = jnp.complex128
 
     # Load data to System class
