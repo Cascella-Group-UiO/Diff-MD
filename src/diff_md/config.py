@@ -377,14 +377,14 @@ def get_config(
                 sgm[type_0, type_1] = c[2]    
                 epsl[type_0, type_1] = c[3]         
                 
-            
+             
             config_dict["sgm_dict"] = sgm_dict
             config_dict["epsl_dict"] = epsl_dict
             
             config_dict["epsl_table"] = jnp.array(epsl + epsl.T - np.diag(np.diag(epsl)))
             config_dict["sgm_table"] = jnp.array(sgm + sgm.T - np.diag(np.diag(sgm)))
 
-            LJ_param = LJ_param.at[ttlj].set(config_dict["epsl_table"])  # TODO: Check if this is not dangerous
+            LJ_param = LJ_param.at[ttlj].set(config_dict["epsl_table"])  # TODO: Check whether this is not dangerous
 
             # print('NTT:', name_to_type)
             # print('EPSL table', config_dict["epsl_table"])

@@ -91,21 +91,21 @@ def main(args):
     ns_nlist = config.ns_nlist 
     
     # Neighbor list with Vesin
-    nlist_calc = NeighborList(cutoff=rv, full_list=False)
-    neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
-    max_neighbors = len(neigh_i) + config.n_particles*5
-    neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
-    neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
-    neigh_i = neigh_i.astype(jnp.int32)
-    neigh_j = neigh_j.astype(jnp.int32)
+    # nlist_calc = NeighborList(cutoff=rv, full_list=False)
+    # neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")   
+    # max_neighbors = len(neigh_i) + config.n_particles*5
+    # neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+    # neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+    # neigh_i = neigh_i.astype(jnp.int32)
+    # neigh_j = neigh_j.astype(jnp.int32)
 
     # Brute force neighborlist
-    # dens = config.n_particles / config.box_size.prod()
-    # max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
-    # max_neighbors += 5000 # Add a buffer for safety
-    # neigh_i = jnp.full(max_neighbors, -1, dtype=int)
-    # neigh_j = jnp.full(max_neighbors, -1, dtype=int)
-    # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+    dens = config.n_particles / config.box_size.prod()
+    max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
+    max_neighbors += 5000 # Add a buffer for safety
+    neigh_i = jnp.full(max_neighbors, -1, dtype=int)
+    neigh_j = jnp.full(max_neighbors, -1, dtype=int)
+    neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -201,18 +201,6 @@ def main(args):
             reconstr_forces, dip_forces, transfer_matrices, *topol.bonds_d
         )
 
-    # Field stuff
-    # if config.pressure or config.barostat:
-    #     phi_fourier = jnp.zeros((config.n_types, *config.fft_shape), dtype=cdtype)
-    #     field_energy, field_forces, field_pressure = get_field_energy_and_forces_npt(
-    #         # fmt: off
-    #         positions, phi, phi_fourier, field_forces, field_fog, chi, type_mask, elec_potential, config
-    #     )
-    # else:
-    #     field_energy, field_forces = get_field_energy_and_forces(
-    #         positions, phi, field_forces, field_fog, chi, type_mask, config
-    #     )
-
     if config.pressure or config.barostat:
         LJ_energy, LJ_forces, LJ_pressure = get_LJ_energy_and_forces_npt(
             LJ_forces, pair_params, config
@@ -222,12 +210,8 @@ def main(args):
             LJ_forces, pair_params, config
         )
 
-    # print('Mass:', config.mass.shape)
-    # print('Velocities:', velocities.shape)
-    # print('Norm velocities:', jnp.linalg.norm(velocities, axis=1).shape)
-    # print('mass * Norm velocities:', (system.masses * jnp.linalg.norm(velocities, axis=1)).shape)
-
-    kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
+    # kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
+    kinetic_energy = 0.5 * jnp.sum(jnp.expand_dims(system.masses, 1) * (velocities * velocities), axis=0)
 
     out_dataset = OutDataset(
         args.destdir,
@@ -253,21 +237,35 @@ def main(args):
     if config.n_print > 0:
         step = 0
         frame = 0
-        temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
-
+        temperature = (2 / 3) * jnp.sum(kinetic_energy) / (config.R * config.n_particles)
+    
         if config.pressure or config.barostat:
-            kinetic_pressure = 2.0 / 3.0 * kinetic_energy
+            # kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             # TODO: Add elec. contribution
-            pressure = (
-                kinetic_pressure
-                + LJ_pressure
-                + bond_pressure
-                + angle_pressure
-                + dihedral_pressure
-                + elec_pressure
-            ) / config.volume
+            # pressure = (
+            #     kinetic_pressure
+            #     + LJ_pressure
+            #     + bond_pressure
+            #     + angle_pressure
+            #     + dihedral_pressure
+            #     + elec_pressure
+            # ) / config.volume
+
+            # Pressure here is in kJ/nm^3
+
+            pressure = (2 / 3 / config.volume) * (
+                        kinetic_energy - (
+                        + LJ_pressure
+                        + bond_pressure
+                        + angle_pressure
+                        + dihedral_pressure
+                        + elec_pressure
+                        )
+                    ) * config.p_conv
+
         else:
             pressure = 0.0
+        
 
         store_data(
             out_dataset,
@@ -278,8 +276,8 @@ def main(args):
             onp.asarray(velocities),
             onp.asarray(LJ_forces),
             temperature,
-            pressure,
-            kinetic_energy,
+            jnp.mean(pressure),
+            jnp.sum(kinetic_energy),
             bond_energy,
             angle_energy,
             dihedral_energy,
@@ -335,15 +333,15 @@ def main(args):
 
         # Initial rRESPA velocity step
         if step%ns_nlist == 0:
-            neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
-            neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
-            neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
-            neigh_i = neigh_i.astype(jnp.int32)
-            neigh_j = neigh_j.astype(jnp.int32)
+            # neigh_i, neigh_j = nlist_calc.compute(points=positions, box=config.box_size*jnp.eye(3), periodic=True, quantities="ij")
+            # neigh_i = jnp.pad(neigh_i, (0, max_neighbors - len(neigh_i)), constant_values=-1)
+            # neigh_j = jnp.pad(neigh_j, (0, max_neighbors - len(neigh_j)), constant_values=-1)
+            # neigh_i = neigh_i.astype(jnp.int32)
+            # neigh_j = neigh_j.astype(jnp.int32)
 
-            # neigh_i = jnp.full(max_neighbors, -1, dtype=int)
-            # neigh_j = jnp.full(max_neighbors, -1, dtype=int)
-            # neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
+            neigh_i = jnp.full(max_neighbors, -1, dtype=int)
+            neigh_j = jnp.full(max_neighbors, -1, dtype=int)
+            neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
             
             if topol.excluded_pairs is not None:
                 neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
@@ -467,27 +465,33 @@ def main(args):
                         elec_forces, pair_params, config, excl_pair_params
                     )
 
-            (
-                LJ_energy,
-                LJ_forces,
-                LJ_pressure
-            ) = get_LJ_energy_and_forces_npt(
+            LJ_energy, LJ_forces, LJ_pressure = get_LJ_energy_and_forces_npt(
                 LJ_forces, pair_params, config
             )
 
             # Calculate pressure
-            kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)    
-            # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
-            kinetic_pressure = 2.0 / 3.0 * kinetic_energy
-            # TODO: Add elec. contribution
-            pressure = (
-                kinetic_pressure
-                + LJ_pressure
-                + bond_pressure
-                + angle_pressure
-                + dihedral_pressure
-                + elec_pressure
-            ) / config.volume
+            # kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)  
+            kinetic_energy = 0.5 * jnp.sum(jnp.expand_dims(system.masses, 1) * (velocities * velocities), axis=0)  
+
+            # kinetic_pressure = 2.0 / 3.0 * kinetic_energy
+            # pressure = (
+            #     kinetic_pressure
+            #     + LJ_pressure
+            #     + bond_pressure
+            #     + angle_pressure
+            #     + dihedral_pressure
+            #     + elec_pressure
+            # ) / config.volume
+
+            pressure = (2 / config.volume) * (
+                        kinetic_energy - (
+                        + LJ_pressure
+                        + bond_pressure
+                        + angle_pressure
+                        + dihedral_pressure
+                        + elec_pressure
+                        )
+                    ) * config.p_conv
 
             # Call barostat
             if config.barostat == 1:
@@ -594,23 +598,35 @@ def main(args):
             if onp.mod(step, config.n_print) == 0 and step != 0:
                 frame = step // config.n_print
 
-                kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
-                # print((system.masses * jnp.linalg.norm(velocities, axis=1)**2))
-                temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
+                # kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
+                kinetic_energy = 0.5 * jnp.sum(jnp.expand_dims(system.masses, 1) * (velocities * velocities), axis=0)
+                temperature = (2 / 3) * jnp.sum(kinetic_energy) / (config.R * config.n_particles)
+
                 if config.pressure or config.barostat:
                     kinetic_pressure = 2.0 / 3.0 * kinetic_energy
                     # TODO: Add elec. contribution
-                    pressure = (
-                        kinetic_pressure
+                    # pressure = (
+                    #     kinetic_pressure
+                    #     + LJ_pressure
+                    #     + bond_pressure
+                    #     + angle_pressure
+                    #     + dihedral_pressure
+                    #     + elec_pressure
+                    # ) / config.volume
+                 
+                    pressure = (2 / config.volume) * (
+                        kinetic_energy - (
                         + LJ_pressure
                         + bond_pressure
                         + angle_pressure
                         + dihedral_pressure
                         + elec_pressure
-                    ) / config.volume
+                        )
+                    ) * config.p_conv
                 else:
                     pressure = 0.0
 
+                
                 store_data(
                     out_dataset,
                     step,
@@ -620,8 +636,8 @@ def main(args):
                     onp.asarray(velocities),
                     onp.asarray(LJ_forces),
                     temperature,
-                    pressure,
-                    kinetic_energy,
+                    jnp.mean(pressure),
+                    jnp.sum(kinetic_energy),
                     bond_energy,
                     angle_energy,
                     dihedral_energy,
@@ -677,23 +693,35 @@ def main(args):
                 )        
 
 
-        kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
-        # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
+        # kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
+        kinetic_energy = 0.5 * jnp.sum(jnp.expand_dims(system.masses, 1) * (velocities * velocities), axis=0)
 
         frame = (step + 1) // config.n_print
-        temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
+        temperature = (2 / 3) * jnp.sum(kinetic_energy) / (config.R * config.n_particles)
+        
 
         if config.pressure or config.barostat:
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             # TODO: Add elec. contribution
-            pressure = (
-                kinetic_pressure 
-                + LJ_pressure
-                + bond_pressure
-                + angle_pressure
-                + dihedral_pressure
-                + elec_pressure
-            ) / config.volume
+            # pressure = (
+            #     kinetic_pressure 
+            #     + LJ_pressure
+            #     + bond_pressure
+            #     + angle_pressure
+            #     + dihedral_pressure
+            #     + elec_pressure
+            # ) / config.volume 
+
+            pressure = (2 / config.volume) * (
+                        kinetic_energy - (
+                        + LJ_pressure
+                        + bond_pressure
+                        + angle_pressure
+                        + dihedral_pressure
+                        + elec_pressure
+                        )
+                    ) * config.p_conv
+            
         else:
             pressure = 0.0
 
@@ -706,8 +734,8 @@ def main(args):
             onp.asarray(velocities),
             onp.asarray(LJ_forces),
             temperature,
-            pressure,
-            kinetic_energy,
+            jnp.mean(pressure),
+            jnp.sum(kinetic_energy),
             bond_energy,
             angle_energy,
             dihedral_energy,

@@ -19,6 +19,45 @@ def LJ_energy(r_vec, s, e):
 
 
 @jit
+def LJ_force(r, e, s):
+    r = jnp.linalg.norm(r, axis=1)
+    r2 = r**2
+    r6 = r**6
+    s6 = s**6
+    return 48 * e * (s6/r6) * (s6/r6 - 0.5) * (1 / r2)
+
+
+# # Without auto diff
+# @jit
+# def get_LJ_energy_and_forces(
+#     forces: Array,
+#     pair_params: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
+#     config: Config
+# ) -> Tuple[float, Array]:
+
+#     forces = forces.at[...].set(0.0)
+
+#     r_vec, r, neigh_i, neigh_j, _, _, s_ij, e_ij = pair_params
+#     r_vec, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, config.rlj)
+
+#     energies = LJ_energy(r_vec, s_ij, e_ij)
+#     grads = LJ_force(r_vec, s_ij, e_ij)
+#     # LJ_grad = vmap(value_and_grad(LJ_energy), (0, 0, 0))
+#     # energies, grads = LJ_grad(r_vec, s_ij, e_ij)
+
+#     grads = jnp.nan_to_num(grads, nan=0.0)
+#     grads = jnp.reshape(len(grads), 1)
+#     forces = forces.at[neigh_i].add(-grads*r_vec)
+#     forces = forces.at[neigh_j].add(grads*r_vec)
+
+#     e_cut =  LJ_energy(config.rlj, s_ij, e_ij)
+#     energy = energies - e_cut
+#     energy = jnp.nan_to_num(energy, nan=0.0)
+
+#     return jnp.sum(energy), forces
+
+
+@jit
 def get_LJ_energy_and_forces(
     forces: Array,
     pair_params: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
@@ -69,10 +108,16 @@ def get_LJ_energy_and_forces_npt(
     energy = energies - e_cut
     energy = jnp.nan_to_num(energy, nan=0.0)
 
-    pressure = jnp.sum(-grads * r_vec, axis=0)
-    # print(pressure.shape)
+    # virial = - 0.5 * jnp.sum(
+    #     (jnp.expand_dims(r_vec, 2) * jnp.expand_dims(-grads, 1)),
+    #     axis=0
+    # )
 
-    return jnp.sum(energy), forces, pressure
+    # virial = jnp.trace(virial)
+
+    virial = - 0.5 * jnp.sum(-grads*r_vec, axis=0)
+
+    return jnp.sum(energy), forces, virial
 
 
 @jit
@@ -531,7 +576,7 @@ def get_reaction_field_energy_and_forces_npt(
     forces = forces.at[neigh_j].add(grads*q_i*q_j)
 
     # Pressure terms
-    pressure = jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
+    pressure = jnp.sum(-grads*q_i*q_j * r_vec)
 
     if excl_pair_param is not None:
       energy, potential, forces, grads, r_vec, q_i, q_j = get_rf_excluded_pairs_energy_and_forces(
@@ -541,7 +586,7 @@ def get_reaction_field_energy_and_forces_npt(
           potentials,
           energy,
       )
-      pressure += jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
+      pressure += jnp.sum(-grads*q_i*q_j * r_vec)
 
     return energy-config.self_energy, potential, forces, pressure
 

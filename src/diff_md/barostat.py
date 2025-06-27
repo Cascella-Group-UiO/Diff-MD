@@ -8,7 +8,7 @@ def scaling_factor(target, pressure, config):
         * config.beta
         * config.outer_ts
         / config.tau_p
-        * (target - pressure * config.p_conv)
+        * (target - pressure)
     )
 
 
