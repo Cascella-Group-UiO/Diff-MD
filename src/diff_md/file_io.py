@@ -522,7 +522,7 @@ def store_data(
         step,
         config.outer_ts * step,
         temperature,
-        pressure,
+        np.mean(pressure),
         total_energy / divide_by,
         kinetic_energy / divide_by,
         potential_energy / divide_by,

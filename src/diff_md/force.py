@@ -23,7 +23,7 @@ def get_bond_energy_and_forces(forces, pos, box, atom1, atom2, r0, k):
     vbond_grad = vmap(value_and_grad(bond_potential, has_aux=True), (0, 0, 0, 0, None))
     (energies, rijs), grads = vbond_grad(ra, rb, r0, k, box)
 
-    bond_pressure = jnp.sum(-grads * rijs, axis=0)
+    bond_pressure = - 0.5 * jnp.sum(-grads * rijs, axis=0)
     forces = forces.at[...].set(0.0)
     forces = forces.at[atom1].add(-grads)
     forces = forces.at[atom2].add(grads)

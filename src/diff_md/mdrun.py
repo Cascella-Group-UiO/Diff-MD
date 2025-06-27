@@ -251,14 +251,14 @@ def main(args):
             #     + elec_pressure
             # ) / config.volume
 
-            # Pressure here is in kJ/nm^3
+            print(LJ_pressure, bond_pressure, LJ_pressure + bond_pressure)
 
-            pressure = (2 / 3 / config.volume) * (
+            pressure = (2 / config.volume) * (
                         kinetic_energy - (
                         + LJ_pressure
                         + bond_pressure
-                        + angle_pressure
-                        + dihedral_pressure
+                        # + angle_pressure
+                        # + dihedral_pressure
                         + elec_pressure
                         )
                     ) * config.p_conv
@@ -276,7 +276,7 @@ def main(args):
             onp.asarray(velocities),
             onp.asarray(LJ_forces),
             temperature,
-            jnp.mean(pressure),
+            pressure,
             jnp.sum(kinetic_energy),
             bond_energy,
             angle_energy,
@@ -487,8 +487,8 @@ def main(args):
                         kinetic_energy - (
                         + LJ_pressure
                         + bond_pressure
-                        + angle_pressure
-                        + dihedral_pressure
+                        # + angle_pressure
+                        # + dihedral_pressure
                         + elec_pressure
                         )
                     ) * config.p_conv
@@ -618,8 +618,8 @@ def main(args):
                         kinetic_energy - (
                         + LJ_pressure
                         + bond_pressure
-                        + angle_pressure
-                        + dihedral_pressure
+                        # + angle_pressure
+                        # + dihedral_pressure
                         + elec_pressure
                         )
                     ) * config.p_conv
@@ -636,7 +636,7 @@ def main(args):
                     onp.asarray(velocities),
                     onp.asarray(LJ_forces),
                     temperature,
-                    jnp.mean(pressure),
+                    pressure,
                     jnp.sum(kinetic_energy),
                     bond_energy,
                     angle_energy,
@@ -716,8 +716,8 @@ def main(args):
                         kinetic_energy - (
                         + LJ_pressure
                         + bond_pressure
-                        + angle_pressure
-                        + dihedral_pressure
+                        # + angle_pressure
+                        # + dihedral_pressure
                         + elec_pressure
                         )
                     ) * config.p_conv
@@ -734,7 +734,7 @@ def main(args):
             onp.asarray(velocities),
             onp.asarray(LJ_forces),
             temperature,
-            jnp.mean(pressure),
+            pressure,
             jnp.sum(kinetic_energy),
             bond_energy,
             angle_energy,

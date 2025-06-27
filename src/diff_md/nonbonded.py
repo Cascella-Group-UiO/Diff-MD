@@ -108,13 +108,6 @@ def get_LJ_energy_and_forces_npt(
     energy = energies - e_cut
     energy = jnp.nan_to_num(energy, nan=0.0)
 
-    # virial = - 0.5 * jnp.sum(
-    #     (jnp.expand_dims(r_vec, 2) * jnp.expand_dims(-grads, 1)),
-    #     axis=0
-    # )
-
-    # virial = jnp.trace(virial)
-
     virial = - 0.5 * jnp.sum(-grads*r_vec, axis=0)
 
     return jnp.sum(energy), forces, virial
