@@ -7,11 +7,6 @@ from typing import Tuple
 @jit
 def nlist(positions, box_size, r_cut, i, j):
 
-    """
-    Brute force neighbor list
-    At least 10 times slower than Vesin
-    """
-
     positions_i = jnp.expand_dims(positions, axis=1)
 
     r_vec = positions_i - positions
@@ -42,6 +37,7 @@ def apply_cutoff(
 
     # Use jnp.less to create a boolean mask
     mask = jnp.less(r_norm, rc)
+
     # Account for padding in nlists
     mask = jnp.where(neigh_i==-1, False, mask)
 

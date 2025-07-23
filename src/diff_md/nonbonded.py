@@ -25,10 +25,12 @@ def get_LJ_energy_and_forces(
     config: Config
 ) -> Tuple[float, Array]:
 
-    forces = forces.at[...].set(0.0)
+    forces = jnp.zeros_like(forces)
+
+    rlj = config.rlj #+ 5e-7
 
     r_vec, r, neigh_i, neigh_j, _, _, s_ij, e_ij = pair_params
-    r_vec, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, config.rlj)
+    r_vec, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, rlj)
 
     LJ_grad = vmap(value_and_grad(LJ_energy), (0, 0, 0))
     energies, grads = LJ_grad(r_vec, s_ij, e_ij)
@@ -37,7 +39,7 @@ def get_LJ_energy_and_forces(
     forces = forces.at[neigh_i].add(-grads)
     forces = forces.at[neigh_j].add(grads)
 
-    e_cut =  LJ_energy(config.rlj, s_ij, e_ij)
+    e_cut =  LJ_energy(rlj, s_ij, e_ij)
     energy = energies - e_cut
     energy = jnp.nan_to_num(energy, nan=0.0)
 

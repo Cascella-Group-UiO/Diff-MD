@@ -214,6 +214,7 @@ def get_system_options(
         if "target_density" in args["system_args"][dir]:
             filename, ext = os.path.splitext(args["system_args"][dir]["target_density"])
             file_path = f"{dir}/{filename}{ext}"
+            print('Reading ref density from', file_path)
             if ext == ".npy":
                 reference = jnp.array(np.load(file_path))
             elif ext == ".xvg":

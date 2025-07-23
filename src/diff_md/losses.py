@@ -19,7 +19,7 @@ def get_LJ_param(
     assert model.LJ_param is not None, "GeneralModel.chi should not be 'None' here."
 
     epsl_constraint = {}
-    epsl = jnp.zeros((config.n_types, config.n_types)) 
+    epsl = jnp.zeros((config.n_types, config.n_types))
 
     # Preprocessing when only specifying a subset of values to train
     if model.type_to_LJ.ndim == 1:
@@ -155,7 +155,7 @@ def density_and_apl(
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
     types = jnp.array(system.types)
 
-    epsl_table, constraint = get_LJ_param(model, system.config)
+    epsl_table, param_constraints = get_LJ_param(model, system.config)
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
@@ -212,11 +212,11 @@ def density_and_apl(
     mean_apl /= comm_size * n_frames_adj
     error += apl_weight * metric(mean_apl, target_apl)
 
-    # Error from chi constraints
+    # Error from parameter constraints
     if constraint:
-        error += constraint(model.LJ_param, k_constraint, constraint)
+        error += constraint(model.LJ_param, k_constraint, param_constraints)
 
-    # Prevent chi from reaching unphysical values (hopefully)
+    # Prevent parameters from reaching unphysical values (hopefully)
     if boundary_S:
         error += boundary_constraint(epsl_table, boundary_C, boundary_S)
 
