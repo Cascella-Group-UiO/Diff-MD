@@ -90,7 +90,7 @@ def simulator(
     ns_nlist = config.ns_nlist 
     dens = config.n_particles / config.box_size.prod()
     max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
-    max_neighbors += 5000 # Add a buffer for safety
+    max_neighbors += 50000 # Add a buffer for safety
 
     # Inicialize neighbor list
     neigh_i = jnp.full(max_neighbors, -1, dtype=int)
