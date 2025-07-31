@@ -46,7 +46,7 @@ def get_LJ_energy_and_forces(
     return jnp.sum(energy), forces
 
 
-@jit
+@jit.compile(compiler_options={'xla_disable_hlo_passes': 'constant_folding'})
 def get_LJ_energy_and_forces_npt(
     forces,
     pair_params: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
@@ -418,7 +418,7 @@ def rf_potential_excluded_pairs(
     return f * (- crf + krf*r**2)
 
 
-@jit
+@jit.compile(compiler_options={'xla_disable_hlo_passes': 'constant_folding'})
 def get_rf_excluded_pairs_energy_and_forces(
     excl_pair_param,
     config,
@@ -526,7 +526,8 @@ def get_rf_pressure(
     return energy, potential, forces, pressure
 
 
-@jit
+#@jit
+@jit.compile(compiler_options={'xla_disable_hlo_passes': 'constant_folding'})
 def get_reaction_field_energy_and_forces_npt(
     forces: Array,
     elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
