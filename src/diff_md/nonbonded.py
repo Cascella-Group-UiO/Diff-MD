@@ -72,7 +72,6 @@ def get_LJ_energy_and_forces_npt(
     energy = jnp.nan_to_num(energy, nan=0.0)
 
     pressure = jnp.sum(-grads * r_vec, axis=0)
-    # print(pressure.shape)
 
     return jnp.sum(energy), forces, pressure
 
@@ -499,6 +498,35 @@ def get_reaction_field_energy_and_forces(
 
 
 @jit
+def get_rf_pressure(
+    energy: float,
+    grads: Array,
+    r_vec: Array,
+    q_i: Array,
+    q_j: Array,
+    potentials: Array,
+    forces: Array,
+    config: Config,
+    excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array]
+):
+    """Calculate internal virial contribution from forces."""
+
+    pressure = jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
+
+    if excl_pair_param is not None:
+      energy, potential, forces, grads, r_vec, q_i, q_j = get_rf_excluded_pairs_energy_and_forces(
+          excl_pair_param,
+          config,
+          forces,
+          potentials,
+          energy,
+      )
+      pressure += jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
+
+    return energy, potential, forces, pressure
+
+
+@jit
 def get_reaction_field_energy_and_forces_npt(
     forces: Array,
     elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
@@ -532,18 +560,17 @@ def get_reaction_field_energy_and_forces_npt(
     forces = forces.at[neigh_i].add(-grads*q_i*q_j)
     forces = forces.at[neigh_j].add(grads*q_i*q_j)
 
-    # Pressure terms
-    pressure = jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
-
-    if excl_pair_param is not None:
-      energy, potential, forces, grads, r_vec, q_i, q_j = get_rf_excluded_pairs_energy_and_forces(
-          excl_pair_param,
-          config,
-          forces,
-          potentials,
-          energy,
-      )
-      pressure += jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
+    # Add pressure contribution
+    energy, potential, forces, pressure = get_rf_pressure(
+        energy,
+        grads,
+        r_vec,
+        q_i, q_j,
+        potentials,
+        forces,
+        config,
+        excl_pair_param
+    )
 
     return energy-config.self_energy, potential, forces, pressure
 
