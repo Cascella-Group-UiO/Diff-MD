@@ -139,8 +139,8 @@ def get_training_parameters(
             scheduler = scheduler(**learning_rate)
             opt = fun(learning_rate=scheduler, **args["optimizer"])
         else:
-            # opt = fun(**args["optimizer"])
-            opt = optax.chain(fun(**args["optimizer"]), optax.keep_params_nonnegative())
+            opt = fun(**args["optimizer"])
+            # opt = optax.chain(fun(**args["optimizer"]), optax.keep_params_nonnegative())
 
     batch_size = 1
     if "batch_size" in args and args["batch_size"] > 0:

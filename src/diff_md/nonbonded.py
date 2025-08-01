@@ -46,7 +46,7 @@ def get_LJ_energy_and_forces(
     return jnp.sum(energy), forces
 
 
-# @jit
+@jit
 def get_LJ_energy_and_forces_npt(
     forces,
     pair_params: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
@@ -418,7 +418,7 @@ def rf_potential_excluded_pairs(
     return f * (- crf + krf*r**2)
 
 
-# @jit
+@jit
 def get_rf_excluded_pairs_energy_and_forces(
     excl_pair_param,
     config,
@@ -526,7 +526,7 @@ def get_rf_pressure(
     return energy, potential, forces, pressure
 
 
-#@jit
+@jit
 def get_reaction_field_energy_and_forces_npt(
     forces: Array,
     elec_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
@@ -535,7 +535,7 @@ def get_reaction_field_energy_and_forces_npt(
 ) -> Tuple[float, float, Array]:
 
     energy = 0.0
-    forces = forces.at[...].set(0.0) # TODO: Test if this is sllow
+    forces = forces.at[...].set(0.0) # TODO: Test if this is slow
     potentials = jnp.zeros((config.n_particles))
 
     r_vec, r, neigh_i, neigh_j, q_i, q_j, _, _ = elec_param

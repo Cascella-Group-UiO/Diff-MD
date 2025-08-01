@@ -33,8 +33,8 @@ class GeneralModel:
         if self.dihedrals:
             pass
 
-        return ret_str
-
+        return ret_str  
+    
 
 @struct.dataclass
 class ChiModel:

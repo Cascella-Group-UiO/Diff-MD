@@ -1,6 +1,7 @@
 import os
 import random
 from typing import Any, Tuple
+import copy
 
 import jax.random
 import mpi4jax
@@ -18,6 +19,8 @@ from .logger import Logger
 from .losses import get_LJ_param
 from .nn_options import get_training_parameters, get_system_options
 from .simulate import simulator
+from .models import GeneralModel
+
 
 # NOTE: double precision helps mitigate gradient explosion, but it's expensive
 # jax_conf.update("jax_enable_x64", True)
@@ -80,9 +83,33 @@ def main(args, comm):
         grads = grads.replace(LJ_param=total_LJ_param_grad)
 
         # Update parameters
+        # old_params = copy.deepcopy(params) 
         updates, opt_state = nn_options.optimizer.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
+        # params = optax.projections.projection_non_negative(params)
+        # tree_lower = GeneralModel.LJ_param(params.LJ_param.at[...].set(0.001))
+        # tree_upper = GeneralModel.LJ_param(params.LJ_param.at[...].set(100.0))
 
+        # print(params)
+        
+        tree_lower = GeneralModel(
+            n_types=params.n_types,
+            type_to_LJ=params.type_to_LJ,
+            self_interaction=params.self_interaction,
+            epsl_constraints=params.epsl_constraints,
+            LJ_param=params.LJ_param.at[...].set(0.001))
+        
+        tree_upper = GeneralModel(
+            n_types=params.n_types,
+            type_to_LJ=params.type_to_LJ,
+            self_interaction=params.self_interaction,
+            epsl_constraints=params.epsl_constraints,
+            LJ_param=params.LJ_param.at[...].set(100.0))
+
+        params = optax.projections.projection_box(params, tree_lower, tree_upper)
+        # params = optax.projections.projection_hyperplane(params, 0.001, 100.0)
+
+        # Log the current loss and gradients
         Logger.rank0.debug(
             f"System {system.name}, current_loss: {loss_value}\n{50*'*'}\n"
             f"Gradients\n{grads}{50*'-'}\n"
