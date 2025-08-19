@@ -109,6 +109,7 @@ def main(args):
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
 
+
     # NOTE: This can probably be cleaned up
     if config.coulombtype and system.charges is not None:
         pair_params = apply_nlist_elec(

@@ -207,6 +207,7 @@ def get_system_options(
     # save copy for output parameters
     toml_copy = copy.deepcopy(toml_config)    
     args = toml_config.pop("nn")
+    
 
     for system in systems:
         dir = system.name

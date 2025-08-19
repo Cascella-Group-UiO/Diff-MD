@@ -95,6 +95,7 @@ def prepare_index_based_bonds(molecules, topol, training):
     impropers = []
     restraints = []
 
+
     different_molecules = np.unique(molecules) 
     for mol in different_molecules: # Iterate trough all individual molecules in the system
         resid = mol + 1 # Offset the index  

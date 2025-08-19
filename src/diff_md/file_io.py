@@ -54,6 +54,7 @@ def save_params(filename: str, toml: dict[str, Any], params: GeneralModel) -> No
         else:
             idx = np.triu_indices(params.n_types)
             idx = params.type_to_LJ[idx] 
+            print(idx)
             assert len(params.LJ_param[idx]) == num_pairs
             for i, epsl in enumerate(params.LJ_param[idx]):
                 toml["nn"]["model"]["LJ_param"][i][3] = float(epsl)

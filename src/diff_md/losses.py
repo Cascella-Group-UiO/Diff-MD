@@ -275,6 +275,7 @@ def radius_of_gyration(
     if constraint:
         error += constraint(model.LJ_param, k_constraint, epsl_constraint)
 
+
     # Prevent interaction parameter from reaching unphysical values (hopefully)
     if boundary_C:
         error += boundary_constraint(epsl_table, boundary_C, boundary_S)
