@@ -254,7 +254,5 @@ def get_system_options(
 
     system_options = System_options(args["system_args"])
 
-    # print("AAAAAAAAAAA")
-    # print(args["system_args"])
 
     return system_options, toml_copy

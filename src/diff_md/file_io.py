@@ -54,7 +54,6 @@ def save_params(filename: str, toml: dict[str, Any], params: GeneralModel) -> No
         else:
             idx = np.triu_indices(params.n_types)
             idx = params.type_to_LJ[idx] 
-            print(idx)
             assert len(params.LJ_param[idx]) == num_pairs
             for i, epsl in enumerate(params.LJ_param[idx]):
                 toml["nn"]["model"]["LJ_param"][i][3] = float(epsl)
@@ -348,11 +347,15 @@ def store_static(
             )
             prev += n
 
+    print(names)
+
     _, name_idx = np.unique(names, return_index=True)
     unique_names = names[np.sort(name_idx)]
 
     for i, n in enumerate(unique_names):
         name_dataset[i] = np.bytes_(n.decode("utf-8")[:16])
+
+    print('name_dataset:', name_dataset)
 
     total_bonds = len(bonds_2_atom1)
     bonds_from = vmd_group.create_dataset("bond_from", (total_bonds,), "i")

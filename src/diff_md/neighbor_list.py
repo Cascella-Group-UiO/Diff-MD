@@ -118,7 +118,6 @@ def apply_nlist(
 
     s_ij = sigma[types[neigh_i[:]], types[neigh_j[:]]]
     e_ij = epsilon[types[neigh_i[:]], types[neigh_j[:]]]
-    # print(s_ij.shape)
 
     return r_vec, r, neigh_i, neigh_j, q_i, q_j, s_ij, e_ij
 

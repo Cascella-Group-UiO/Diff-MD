@@ -20,6 +20,7 @@ def get_LJ_param(
 
     epsl_constraint = {}
     epsl = jnp.zeros((config.n_types, config.n_types))
+    # epsl = jnp.zeros((model.n_types, model.n_types))
 
     # Preprocessing when only specifying a subset of values to train
     if model.type_to_LJ.ndim == 1:
@@ -28,20 +29,55 @@ def get_LJ_param(
             if ttc in config.type_to_LJ:
                 dummy_lj = dummy_lj.at[ttc].set(c)
 
+    # print('AAAAAA')
+    # print(model.type_to_LJ)
+    # print(config.unique_types)
+
     for i, ti in enumerate(config.unique_types):
         if model.type_to_LJ.ndim == 1:
             epsl = epsl.at[i].set(dummy_lj[config.type_to_LJ[i]])
         else:
             epsl = epsl.at[i].set(model.LJ_param[model.type_to_LJ[ti, config.unique_types]])
+
+    # epsl = epsl.at[...].set(model.LJ_param[model.type_to_LJ])
     # Parse constraints
     for ttc, val in model.epsl_constraints.items():
         if ttc in config.type_to_LJ:
             epsl_constraint[ttc] = val
 
-    # epsl = jnp.array(epsl + epsl.T - jnp.diag(jnp.diag(epsl)))
-    # print('NN epsl', epsl)
 
     return epsl, epsl_constraint
+
+
+# def get_LJ_param(
+#     model: GeneralModel, config: Config
+# ) -> Tuple[Array, dict[int, Array]]:
+#     assert model.LJ_param is not None, "GeneralModel.chi should not be 'None' here."
+
+#     epsl_constraint = {}
+#     epsl = jnp.zeros((model.n_types, model.n_types))
+#     # epsl = jnp.zeros((model.n_types, model.n_types))
+
+#     # Preprocessing when only specifying a subset of values to train
+#     if model.type_to_LJ.ndim == 1:
+#         dummy_lj = config.LJ_param
+#         for ttc, c in zip(model.type_to_LJ, model.LJ_param):
+#             if ttc in config.type_to_LJ:
+#                 dummy_lj = dummy_lj.at[ttc].set(c)
+
+#     for i, ti in enumerate(config.unique_types):
+#         if model.type_to_LJ.ndim == 1:
+#             epsl = epsl.at[i].set(dummy_lj[config.type_to_LJ[i]])
+#         else:
+#             epsl = epsl.at[i].set(model.LJ_param[model.type_to_LJ[ti, config.unique_types]])
+
+#     # Parse constraints
+#     for ttc, val in model.epsl_constraints.items():
+#         if ttc in config.type_to_LJ:
+#             epsl_constraint[ttc] = val
+
+
+#     return epsl, epsl_constraint
 
 
 @jit
@@ -237,12 +273,21 @@ def radius_of_gyration(
 ):
     types = jnp.array(system.types)
 
+    # print('TTLJ')
+    # print(model.type_to_LJ)
+    # print(system.config.type_to_LJ)
+
     epsl_table, epsl_constraint = get_LJ_param(model, system.config)
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
         epsl_table, key, system.topol, system.config, start_temperature
     )
+   
+    # print(epsl_table)
+    # print(model.LJ_param)
+ 
+    jnp.save('types.npy', types)
 
     comm_size = comm.Get_size()
     n_frames = len(trj["positions"])

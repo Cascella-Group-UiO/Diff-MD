@@ -339,9 +339,6 @@ def get_config(
         # config_dict["mass"] = masses
 
     config_dict["mass"] = jnp.reshape(masses, (-1, 1))
-    # print('masses', masses)
-    # print('type', type(masses))
-    # print('shape', config_dict["mass"].shape)
 
     for k, v in toml_config.items():
         if isinstance(v, dict):
@@ -506,12 +503,16 @@ def get_config(
 
     # Reassingn types to the correct names in shared Chi matrix
     # when training multiple systems
+
     if ext_name_to_type is not None:
         types = np.array([ext_name_to_type[n.decode("UTF-8")] for n in names])
         unique_types = types[np.sort(name_idx)]
         config_dict["particle_per_type"] = {
             t: len(types[types == t]) for t in unique_types
         }
+        # print('Types in config', types)
+        # print('Name to type:', ext_name_to_type)
+        # print('Unique types:', unique_types)
 
     config_dict["unique_types"] = tuple(unique_types)
     config = Config.constructor(types, charges, **config_dict)
@@ -522,5 +523,6 @@ def get_config(
     # Only print if we have a single system
     if name_to_type is None:
         Logger.rank0.info(str(config))
+    
 
     return config, jnp.array(types)

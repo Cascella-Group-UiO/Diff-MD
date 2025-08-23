@@ -222,10 +222,6 @@ def main(args):
             LJ_forces, pair_params, config
         )
 
-    # print('Mass:', config.mass.shape)
-    # print('Velocities:', velocities.shape)
-    # print('Norm velocities:', jnp.linalg.norm(velocities, axis=1).shape)
-    # print('mass * Norm velocities:', (system.masses * jnp.linalg.norm(velocities, axis=1)).shape)
 
     kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
 
@@ -596,7 +592,6 @@ def main(args):
                 frame = step // config.n_print
 
                 kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)
-                # print((system.masses * jnp.linalg.norm(velocities, axis=1)**2))
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
                 if config.pressure or config.barostat:
                     kinetic_pressure = 2.0 / 3.0 * kinetic_energy

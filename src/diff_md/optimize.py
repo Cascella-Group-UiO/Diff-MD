@@ -89,8 +89,6 @@ def main(args, comm):
         # params = optax.projections.projection_non_negative(params)
         # tree_lower = GeneralModel.LJ_param(params.LJ_param.at[...].set(0.001))
         # tree_upper = GeneralModel.LJ_param(params.LJ_param.at[...].set(100.0))
-
-        # print(params)
         
         tree_lower = GeneralModel(
             n_types=params.n_types,
@@ -166,6 +164,11 @@ def main(args, comm):
                 "debug",
                 double_out=False,
             )
+            
+            # print(system.names)
+            # print(system.types)
+            # print(system.indices)
+
             store_static(
                 # fmt: off
                 out_dataset, system.names, system.types, system.indices, config, system.topol.bonds_2[0], system.topol.bonds_2[1],

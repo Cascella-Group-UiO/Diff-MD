@@ -53,8 +53,6 @@ def simulator(
     # Dict to save trajectory
     trj = {}
 
-    # print(epsl_table)
-
     # Arrays to store dihedral angle information for fitting 2d distribution
     # if protein_flag:
     #     dihedral_phi = jnp.empty(0)
