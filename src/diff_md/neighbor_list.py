@@ -146,6 +146,63 @@ def apply_nlist_elec(
 
     return r_vec, r, neigh_i, neigh_j, q_i, q_j, s_ij, e_ij
 
+
+@jit
+def cond_charge(
+    neigh_i,
+    neigh_j,
+    charges
+):
+    # Define the functions for the true and false branches
+    def true_branch(val):
+        return (None, None)
+    def false_branch(val):
+        q_i = charges[neigh_i]
+        q_j = charges[neigh_j]
+        return (q_i, q_j)
+    
+    return lax.cond(
+        charges == None,
+        true_branch,
+        false_branch,
+        charges,
+    )
+
+
+@jit
+def apply_nlist_general(
+    neigh_i: Array,
+    neigh_j: Array,
+    positions: Array,
+    charges: Array,
+    box_size: Array,
+    sigma: Array,
+    epsilon: Array,
+    types: Array,
+):
+    # For calculation of pair potential energy
+    i = jnp.take(positions, neigh_i, axis=0)
+    j = jnp.take(positions, neigh_j, axis=0)
+    r_vec = i - j
+    r_vec = r_vec - box_size * jnp.around(r_vec / box_size)
+    r = jnp.linalg.norm(r_vec, axis=1)
+
+    s_ij = sigma[types[neigh_i[:]], types[neigh_j[:]]]
+    e_ij = epsilon[types[neigh_i[:]], types[neigh_j[:]]]
+
+    q_i, q_j = lax.cond(
+        charges is not None,
+        lambda: (
+            charges[neigh_i],                   # true branch
+            charges[neigh_j]),                  
+        lambda: (
+            jnp.zeros((neigh_i.shape[0],1)),    # false branch
+            jnp.zeros((neigh_i.shape[0],1))),   
+    )
+
+    return r_vec, r, neigh_i, neigh_j, q_i, q_j, s_ij, e_ij
+
+
 @jit
 def exclude_bonded_neighbors(neigh_i, neigh_j, bonded_i, bonded_j):
     bonded_pairs = jnp.vstack((jnp.column_stack((bonded_i, bonded_j)),

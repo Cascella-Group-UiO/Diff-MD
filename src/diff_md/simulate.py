@@ -27,6 +27,7 @@ from .neighbor_list import (
     nlist,
     apply_nlist, 
     apply_nlist_elec, 
+    apply_nlist_general,
     exclude_bonded_neighbors
 )
 
@@ -93,47 +94,35 @@ def simulator(
     # Inicialize neighbor list
     neigh_i = jnp.full(max_neighbors, -1, dtype=int)
     neigh_j = jnp.full(max_neighbors, -1, dtype=int)
-    # neigh_i, neigh_j = jax.lax.stop_gradient(nlist(positions, config.box_size, rv, neigh_i, neigh_j))
     neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
 
     if topol.excluded_pairs is not None:
         neigh_i, neigh_j = exclude_bonded_neighbors(neigh_i, neigh_j, topol.excluded_pairs[0], topol.excluded_pairs[1])
 
-    # NOTE: This can probably be cleaned up
-    if config.coulombtype and charges is not None:
-        pair_params = apply_nlist_elec(
+    pair_params = apply_nlist_general(
             neigh_i, 
             neigh_j, 
             positions, 
             charges, 
             config.box_size, 
             config.sgm_table, 
-            epsl_table, 
-            types
+            config.epsl_table, 
+            types,
         )
-        if topol.excluded_pairs is not None:
-            excl_pair_params = apply_nlist_elec(
-                topol.excluded_pairs[0],
-                topol.excluded_pairs[1],
-                positions,
-                charges,
-                config.box_size,
-                config.sgm_table,
-                epsl_table,
-                types,
-            )
-        else:
-            excl_pair_params = None
-    else:
-        pair_params = apply_nlist(
-            neigh_i, 
-            neigh_j, 
-            positions, 
-            config.box_size, 
-            config.sgm_table, 
-            epsl_table, 
-            types
-        )
+    
+    excl_pair_params = None
+    # Take excluded pairs for electrostatic correction    
+    if charges is not None and topol.excluded_pairs is not None:
+        excl_pair_params = apply_nlist_general(
+            topol.excluded_pairs[0],
+            topol.excluded_pairs[1],
+            positions,
+            charges,
+            config.box_size,
+            config.sgm_table,
+            config.epsl_table,
+            types,
+        ) 
 
     # Init energies
     bond_energy, angle_energy, dihedral_energy, LJ_energy, elec_energy = 0, 0, 0, 0, 0  # fmt:skip
@@ -410,38 +399,29 @@ def simulator(
                 )
 
 
-        if config.coulombtype and charges is not None:
-            pair_params = apply_nlist_elec(
+        pair_params = apply_nlist_general(
                 neigh_i, 
                 neigh_j, 
                 positions, 
                 charges, 
                 config.box_size, 
                 config.sgm_table, 
-                epsl_table, 
-                types
+                config.epsl_table, 
+                types,
             )
-            if topol.excluded_pairs is not None: # This should be applied when we don't have charges too
-                excl_pair_params = apply_nlist_elec(
-                    topol.excluded_pairs[0],
-                    topol.excluded_pairs[1],
-                    positions,
-                    charges,
-                    config.box_size,
-                    config.sgm_table,
-                    epsl_table,
-                    types,
-                )
-        else:
-            pair_params = apply_nlist(
-                neigh_i, 
-                neigh_j, 
-                positions, 
-                config.box_size, 
-                config.sgm_table, 
-                epsl_table, 
-                types
-            )      
+        
+        # Take excluded pairs for electrostatic correction    
+        if charges is not None and topol.excluded_pairs is not None:
+            excl_pair_params = apply_nlist_general(
+                topol.excluded_pairs[0],
+                topol.excluded_pairs[1],
+                positions,
+                charges,
+                config.box_size,
+                config.sgm_table,
+                config.epsl_table,
+                types,
+            )     
         
         # Recompute after barostat
         LJ_energy, LJ_forces = get_LJ_energy_and_forces(

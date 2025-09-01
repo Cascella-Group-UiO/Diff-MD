@@ -27,7 +27,7 @@ def get_LJ_energy_and_forces(
 
     forces = jnp.zeros_like(forces)
 
-    rlj = config.rlj #+ 5e-7
+    rlj = config.rlj
 
     r_vec, r, neigh_i, neigh_j, _, _, s_ij, e_ij = pair_params
     r_vec, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, rlj)
@@ -372,18 +372,18 @@ def comp_laplacian(laplacian: Array, phi_fourier: Array, config: Config) -> Arra
     return laplacian
 
 
-@jit
-def reaction_field_force(
-    r: Array,
-    q_i: Array,
-    q_j: Array,
-    erf: float,
-    er: float,
-    rc: float) -> Array:
+# @jit
+# def reaction_field_force(
+#     r: Array,
+#     q_i: Array,
+#     q_j: Array,
+#     erf: float,
+#     er: float,
+#     rc: float) -> Array:
 
-    krf = (erf - er) / (2*erf + er) * 1/rc**3
-    c = 138.935458*q_i*q_j/er
-    return c * (1/r**2 - 2*krf*r) / r
+#     krf = (erf - er) / (2*erf + er) * 1/rc**3
+#     c = 138.935458*q_i*q_j/er
+#     return c * (1/r**2 - 2*krf*r) / r
 
 
 @jit
@@ -459,8 +459,7 @@ def get_reaction_field_energy_and_forces(
     excl_pair_param: Tuple[Array, Array, Array, Array, Array, Array, Array, Array]
 ) -> Tuple[float, float, Array]:
 
-    energy = 0.0
-    forces = forces.at[...].set(0.0)
+    forces = jnp.zeros((config.n_particles, 3))
     potentials = jnp.zeros((config.n_particles))
 
     r_vec, r, neigh_i, neigh_j, q_i, q_j, _, _ = elec_param
