@@ -347,7 +347,6 @@ def store_static(
             )
             prev += n
 
-    print(names)
 
     _, name_idx = np.unique(names, return_index=True)
     unique_names = names[np.sort(name_idx)]
@@ -355,7 +354,6 @@ def store_static(
     for i, n in enumerate(unique_names):
         name_dataset[i] = np.bytes_(n.decode("utf-8")[:16])
 
-    print('name_dataset:', name_dataset)
 
     total_bonds = len(bonds_2_atom1)
     bonds_from = vmd_group.create_dataset("bond_from", (total_bonds,), "i")

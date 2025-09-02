@@ -80,15 +80,12 @@ def main(args, comm):
 
         # Logger.rank0.debug(f"Gradients before reduction: {grads}")
         total_LJ_param_grad, _ = mpi4jax.allreduce(grads.LJ_param, op=MPI.SUM, comm=comm)
+        print(grads)
         grads = grads.replace(LJ_param=total_LJ_param_grad)
 
         # Update parameters
-        # old_params = copy.deepcopy(params) 
         updates, opt_state = nn_options.optimizer.update(grads, opt_state, params)
         params = optax.apply_updates(params, updates)
-        # params = optax.projections.projection_non_negative(params)
-        # tree_lower = GeneralModel.LJ_param(params.LJ_param.at[...].set(0.001))
-        # tree_upper = GeneralModel.LJ_param(params.LJ_param.at[...].set(100.0))
         
         tree_lower = GeneralModel(
             n_types=params.n_types,
@@ -164,10 +161,6 @@ def main(args, comm):
                 "debug",
                 double_out=False,
             )
-            
-            # print(system.names)
-            # print(system.types)
-            # print(system.indices)
 
             store_static(
                 # fmt: off

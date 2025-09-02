@@ -27,7 +27,7 @@ def get_LJ_energy_and_forces(
 
     forces = jnp.zeros_like(forces)
 
-    rlj = config.rlj
+    rlj = config.rlj #+ 5e-7
 
     r_vec, r, neigh_i, neigh_j, _, _, s_ij, e_ij = pair_params
     r_vec, s_ij, e_ij, neigh_i, neigh_j = apply_cutoff(r_vec, r, s_ij, e_ij, neigh_i, neigh_j, rlj)

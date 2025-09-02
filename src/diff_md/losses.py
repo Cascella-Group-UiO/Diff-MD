@@ -273,10 +273,6 @@ def radius_of_gyration(
 ):
     types = jnp.array(system.types)
 
-    # print('TTLJ')
-    # print(model.type_to_LJ)
-    # print(system.config.type_to_LJ)
-
     epsl_table, epsl_constraint = get_LJ_param(model, system.config)
     trj, key, config = simulator(
         # fmt: off
@@ -284,11 +280,6 @@ def radius_of_gyration(
         epsl_table, key, system.topol, system.config, start_temperature
     )
    
-    # print(epsl_table)
-    # print(model.LJ_param)
- 
-    jnp.save('types.npy', types)
-
     comm_size = comm.Get_size()
     n_frames = len(trj["positions"])
     mean_Rg = 0.0
