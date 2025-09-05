@@ -412,7 +412,8 @@ def main(args):
         # Second rRESPA velocity step
         # Barostat
         if config.barostat and (jnp.mod(step, config.n_b) == 0):
-            pair_params = apply_nlist_general(
+            if config.coulombtype and system.charges is not None:
+                pair_params = apply_nlist_elec(
                     neigh_i, 
                     neigh_j, 
                     positions, 
@@ -420,22 +421,30 @@ def main(args):
                     config.box_size, 
                     config.sgm_table, 
                     config.epsl_table, 
-                    system.types,
+                    system.types
+                )
+                if topol.excluded_pairs is not None:
+                    excl_pair_params = apply_nlist_elec(
+                        topol.excluded_pairs[0],
+                        topol.excluded_pairs[1],
+                        positions,
+                        system.charges,
+                        config.box_size,
+                        config.sgm_table,
+                        config.epsl_table,
+                        system.types,
+                    )
+            else:
+                pair_params = apply_nlist(
+                    neigh_i, 
+                    neigh_j, 
+                    positions, 
+                    config.box_size, 
+                    config.sgm_table, 
+                    config.epsl_table, 
+                    system.types
                 )
             
-            # Take excluded pairs for electrostatic correction
-            if system.charges is not None and topol.excluded_pairs is not None:
-                excl_pair_params = apply_nlist_general(
-                    topol.excluded_pairs[0],
-                    topol.excluded_pairs[1],
-                    positions,
-                    system.charges,
-                    config.box_size,
-                    config.sgm_table,
-                    config.epsl_table,
-                    system.types,
-                )   
-
             if system.charges is not None:
                 if config.coulombtype == 1:
                     (
@@ -493,8 +502,8 @@ def main(args):
                     key,
                 )
 
-        
-        pair_params = apply_nlist_general(
+        if config.coulombtype and system.charges is not None:
+            pair_params = apply_nlist_elec(
                 neigh_i, 
                 neigh_j, 
                 positions, 
@@ -504,19 +513,27 @@ def main(args):
                 config.epsl_table, 
                 system.types,
             )
-        # Take excluded pairs for electrostatic correction
-        if system.charges is not None and topol.excluded_pairs is not None:
-            excl_pair_params = apply_nlist_general(
-                topol.excluded_pairs[0],
-                topol.excluded_pairs[1],
-                positions,
-                system.charges,
-                config.box_size,
-                config.sgm_table,
-                config.epsl_table,
-                system.types,
-            )        
-        else: excl_pair_params = None
+            if topol.excluded_pairs is not None:
+                excl_pair_params = apply_nlist_elec(
+                    topol.excluded_pairs[0],
+                    topol.excluded_pairs[1],
+                    positions,
+                    system.charges,
+                    config.box_size,
+                    config.sgm_table,
+                    config.epsl_table,
+                    system.types,
+                )
+        else:
+            pair_params = apply_nlist(
+                neigh_i, 
+                neigh_j, 
+                positions, 
+                config.box_size, 
+                config.sgm_table, 
+                config.epsl_table, 
+                system.types
+            )
 
 
         # Recompute after barostat

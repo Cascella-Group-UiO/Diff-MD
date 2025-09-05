@@ -425,7 +425,7 @@ def get_rf_excluded_pairs_energy_and_forces(
     forces,
     potentials,
     energy
-) -> Tuple[float, float, Array]: 
+) -> Tuple[float, float, Array]:
     r_vec, _, neigh_i, neigh_j, q_i, q_j, _, _ = excl_pair_param
 
     func = vmap(value_and_grad(rf_potential_excluded_pairs), (0, None, None, None, None))
@@ -575,14 +575,14 @@ def get_reaction_field_energy_and_forces_npt(
 
 
 @jit
-def ewald_rec_intramol(    
+def ewald_rec_intramol(
     r_vec: Array,
     alpha: float,
     f: float,
 ):
     r = jnp.linalg.norm(r_vec, axis=0)
     return - f * lax.erf(jnp.sqrt(alpha) * r) / r
-    
+
 
 @jit
 def ewald_masked_pairs(
@@ -599,15 +599,17 @@ def ewald_masked_pairs(
     phi_contributions, grads = func(r_vec, 1/(2*config.sigma**2), config.elec_conversion)
 
     # Forces
-    grads = jnp.where((neigh_i == -1)[:, None], jnp.zeros(3), grads)
+    grads = jnp.nan_to_num(grads, nan=0.0)
+    # grads = jnp.where((neigh_i == -1)[:, None], jnp.zeros(3), grads)
     forces = forces.at[neigh_i].add(-grads*q_i*q_j)
     forces = forces.at[neigh_j].add(grads*q_i*q_j)
 
     q_i = jnp.squeeze(q_i)
     q_j = jnp.squeeze(q_j)
-    
+
     # Potential
-    phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
+    # phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
+    phi_contributions = jnp.nan_to_num(phi_contributions, nan=0.0)
     potentials = potentials.at[neigh_i].add(phi_contributions*q_j)
     potentials = potentials.at[neigh_j].add(phi_contributions*q_i)
     potential = jnp.sum(potentials)
@@ -649,7 +651,8 @@ def ewald_real_space(
     phi_contributions, grads = potential(r_vec, alpha, config.elec_conversion)
 
     # Potential
-    phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
+    phi_contributions = jnp.nan_to_num(phi_contributions, nan=0.0)
+    # phi_contributions = jnp.where(neigh_i == -1, 0, phi_contributions)
     potentials = potentials.at[neigh_i].add(phi_contributions*q_j)
     potentials = potentials.at[neigh_j].add(phi_contributions*q_i)
     potential = jnp.sum(potentials)
@@ -658,7 +661,8 @@ def ewald_real_space(
     energy = jnp.sum(phi_contributions*q_j*q_i)
 
     # Forces
-    grads = jnp.where((neigh_i == -1)[:, None], jnp.zeros(3), grads)
+    grads = jnp.nan_to_num(grads, nan=0.0)
+    # grads = jnp.where((neigh_i == -1)[:, None], jnp.zeros(3), grads)
     q_i = q_i.reshape(len(q_i), 1)
     q_j = q_j.reshape(len(q_j), 1)
     forces = forces.at[neigh_i].add(-grads*q_i*q_j)
@@ -725,7 +729,7 @@ def ewald_real_space_npt(
             energy,
         )
         pressure += jnp.sum(-grads*q_i*q_j * r_vec, axis=0)
-      
+
     return energy, forces, potential, pressure
 
 
