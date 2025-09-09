@@ -80,7 +80,6 @@ def main(args, comm):
 
         # Logger.rank0.debug(f"Gradients before reduction: {grads}")
         total_LJ_param_grad, _ = mpi4jax.allreduce(grads.LJ_param, op=MPI.SUM, comm=comm)
-        print(grads)
         grads = grads.replace(LJ_param=total_LJ_param_grad)
 
         # Update parameters
@@ -102,7 +101,6 @@ def main(args, comm):
             LJ_param=params.LJ_param.at[...].set(100.0))
 
         params = optax.projections.projection_box(params, tree_lower, tree_upper)
-        # params = optax.projections.projection_hyperplane(params, 0.001, 100.0)
 
         # Log the current loss and gradients
         Logger.rank0.debug(

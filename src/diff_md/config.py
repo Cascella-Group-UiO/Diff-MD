@@ -41,9 +41,6 @@ class Config:
     self_energy: float = struct.field(pytree_node=False)
 
     # Field options
-    # chi: Array = struct.field(pytree_node=False)
-    # chi_dict: dict = struct.field(pytree_node=False)
-    # type_to_chi: Array = struct.field(pytree_node=False)
     mesh_size: Array = struct.field(pytree_node=False)
     rho0: float = struct.field(pytree_node=False)
     kappa: float = struct.field(pytree_node=False)
@@ -288,7 +285,7 @@ def get_config(
     except Exception as e:
         Logger.rank0.error(f"Unable to parse config file '{file_path}'.", exc_info=e)
         exit()
-
+    
     if database is not None:
         try:
             db_data = read_toml(database)
@@ -373,7 +370,6 @@ def get_config(
 
                 sgm[type_0, type_1] = c[2]    
                 epsl[type_0, type_1] = c[3]         
-                
             
             config_dict["sgm_dict"] = sgm_dict
             config_dict["epsl_dict"] = epsl_dict
@@ -383,9 +379,11 @@ def get_config(
 
             LJ_param = LJ_param.at[ttlj].set(config_dict["epsl_table"])  # TODO: Check if this is not dangerous
 
-            # print('NTT:', name_to_type)
-            # print('EPSL table', config_dict["epsl_table"])
-            # print('LJ_param', LJ_param)
+            # print(name_to_type)
+            # print(unique_types)
+            # print(config_dict['type_to_LJ'])
+            # print(LJ_param)
+            # print('param in config', config_dict["epsl_table"])
 
             config_dict["LJ_param"] = LJ_param
 
@@ -503,16 +501,14 @@ def get_config(
 
     # Reassingn types to the correct names in shared Chi matrix
     # when training multiple systems
-
     if ext_name_to_type is not None:
         types = np.array([ext_name_to_type[n.decode("UTF-8")] for n in names])
         unique_types = types[np.sort(name_idx)]
         config_dict["particle_per_type"] = {
             t: len(types[types == t]) for t in unique_types
         }
-        # print('Types in config', types)
-        # print('Name to type:', ext_name_to_type)
-        # print('Unique types:', unique_types)
+
+        
 
     config_dict["unique_types"] = tuple(unique_types)
     config = Config.constructor(types, charges, **config_dict)

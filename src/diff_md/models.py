@@ -13,6 +13,7 @@ class GeneralModel:
     self_interaction: bool = struct.field(pytree_node=False, default=True)
     epsl_constraints: dict = struct.field(pytree_node=False, default_factory=dict)
     LJ_param: Optional[Array] = None
+    # subset: bool = struct.field(pytree_node=False, default=False) # Training only a subset of values
     bonds: Optional[dict] = None  # -> bonds_2
     angles: Optional[dict] = None  # -> bonds_3
     dihedrals: Optional[dict] = None  # -> bonds_4
