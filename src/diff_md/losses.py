@@ -14,7 +14,7 @@ from .simulate import simulator
 
 
 def get_LJ_param(
-    model: GeneralModel, config: Config
+    model: GeneralModel, config: Config, types: Array
 ) -> Tuple[Array, dict[int, Array]]:
     assert model.LJ_param is not None, "GeneralModel.chi should not be 'None' here."
 
@@ -46,6 +46,9 @@ def get_LJ_param(
                 
                 dummy_lj = dummy_lj.at[config.type_to_LJ[i, j]].set(model.LJ_param[k])       
 
+
+        # Correct types to the indices used in config [0, 1, 6] -> [0, 1, 2]
+        types = jnp.searchsorted(jnp.asarray(config.unique_types), types)
 
         # print('Dummy After', dummy_lj)
 
@@ -81,7 +84,7 @@ def get_LJ_param(
             epsl_constraint[ttc] = val
 
 
-    return epsl, epsl_constraint
+    return epsl, epsl_constraint, types
 
 
 
@@ -277,10 +280,9 @@ def radius_of_gyration(
     metric, target_rg, rg_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
     boundary_S=None, boundary_C=None, constraint=None,
 ):
-    types = jnp.array(system.types)
-
-    epsl_table, epsl_constraint = get_LJ_param(model, system.config)
-
+    
+    # TODO: Types here won't work with epsl_table and sgm_table
+    epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,

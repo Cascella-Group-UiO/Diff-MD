@@ -208,7 +208,7 @@ def main(args, comm):
 
             if nn_options.equilibration:
                 # Restarts from initial positions
-                epsl, _ = get_LJ_param(params, system.config)
+                epsl, _, _ = get_LJ_param(params, system.config, system.types)
                 trj, key, config = simulator(
                     # fmt: off
                     params, start_pos[i], start_vel[i], system.types, system.masses, system.charges,
