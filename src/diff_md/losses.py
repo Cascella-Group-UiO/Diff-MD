@@ -168,12 +168,11 @@ def density_and_apl(
     model, system, key, start_temperature, comm,
     z_range, com_type, n_lipids, target_density, target_apl,    # System specific arguments
     metric, density_weight=1.0, k_constraint=0.01, apl_weight=1.0, width_ratio=1.0,   # General arguments for all systems (nn_options.loss_args)
-    boundary_S=None, boundary_C=None, constraint=None,
+    boundary=None, boundary_S=None, boundary_C=None, constraint=None,
 ):
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
-    types = jnp.array(system.types)
 
-    epsl_table, param_constraints = get_LJ_param(model, system.config)
+    epsl_table, param_constraints, types = get_LJ_param(model, system.config, jnp.array(system.types))
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
@@ -236,7 +235,7 @@ def density_and_apl(
 
     # Prevent parameters from reaching unphysical values (hopefully)
     if boundary_S:
-        error += boundary_constraint(epsl_table, boundary_C, boundary_S)
+        error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
 
     return error, (
         {"density": kde_density, "area per lipid": mean_apl},
