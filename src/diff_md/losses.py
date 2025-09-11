@@ -25,18 +25,10 @@ def get_LJ_param(
     if model.type_to_LJ.ndim == 1:
         dummy_lj = config.LJ_param
         ttlj_full = get_type_to_LJ(model.n_types) 
-
-        # print('AAAAAA')
-        # print('Dummy', dummy_lj)
         
         pairs_to_train = jnp.zeros((model.type_to_LJ.shape[0], 2), dtype=int)
         for i, ti in enumerate(model.type_to_LJ):
             pairs_to_train = pairs_to_train.at[i].set(jnp.argwhere(ti==ttlj_full)[0])
-
-        # print('M ttlj', model.type_to_LJ)
-        # print('M lj', model.LJ_param)
-        # print('FULL', ttlj_full)
-        # print('C ttlj', config.type_to_LJ)
 
         for k, (i, j) in enumerate(pairs_to_train):
             if i&j in config.unique_types: 
@@ -46,38 +38,20 @@ def get_LJ_param(
                 
                 dummy_lj = dummy_lj.at[config.type_to_LJ[i, j]].set(model.LJ_param[k])       
 
-
         # Correct types to the indices used in config [0, 1, 6] -> [0, 1, 2]
         types = jnp.searchsorted(jnp.asarray(config.unique_types), types)
-
-        # print('Dummy After', dummy_lj)
-
-        # Which pair are in model.ttlj
-        # print(config.type_to_LJ)
-        # print(config.unique_types)
 
         # for tte, e in zip(model.type_to_LJ, model.LJ_param):
         #     if tte in config.type_to_LJ:
         #         dummy_lj = dummy_lj.at[tte].set(e)
 
-    # print(model.type_to_LJ)
-    
     for i, ti in enumerate(config.unique_types):
         if model.type_to_LJ.ndim == 1:
             epsl = epsl.at[i].set(dummy_lj[config.type_to_LJ[i]])
             # print(epsl)
         else:
             epsl = epsl.at[i].set(model.LJ_param[model.type_to_LJ[ti, config.unique_types]])
-            # print('config unique', config.unique_types)
-            # print('i', i)
-            # print('ti', ti)
-            # print('model.type_to_LJ', model.type_to_LJ)
-            # print('model.LJ_param', model.LJ_param)
-            # print('epsl', epsl)
-            # print("CCCCCCCCCCCCCCCCCCCCCC")
-    # epsl = epsl.at[...].set(model.LJ_param[model.type_to_LJ])
 
-    # print('Eps tablem in NN', epsl)
     # Parse constraints
     for ttc, val in model.epsl_constraints.items():
         if ttc in config.type_to_LJ:
@@ -85,8 +59,6 @@ def get_LJ_param(
 
 
     return epsl, epsl_constraint, types
-
-
 
 
 @jit
@@ -144,7 +116,7 @@ def l2e(predictions, targets, axis=None):
 
 
 @jit
-def harmonic_constraint(chi, k, constraints):
+def harmonic_constraint(y, k, constraints):
     r"""
     Restrain :math:`\Chi` parameters with a harmonic potential:
     ..math::
@@ -156,21 +128,22 @@ def harmonic_constraint(chi, k, constraints):
     """
     # Here chi is a 1D array of the upper triangular portion of the full matrix
     return k * jnp.sum(
-        jnp.array([(chi[ttc] - val) ** 2 for ttc, val in constraints.items()])
+        jnp.array([(y[ttc] - val) ** 2 for ttc, val in constraints.items()])
     )
 
 
 @jit
-def cubic_constraint(chi, k, constraints):
+def cubic_constraint(y, k, constraints):
     # Here chi is a 1D array of the upper triangular portion of the full matrix
     return k * jnp.sum(
-        jnp.array([jnp.abs(chi[ttc] - val) ** 3 for ttc, val in constraints.items()]),
+        jnp.array([jnp.abs(y[ttc] - val) ** 3 for ttc, val in constraints.items()]),
     )
 
 
 @jit
-def boundary_constraint(epsl, C=5000, S=500):
-    return 0.5 * jnp.sum(C * jax.nn.sigmoid(-epsl*S))
+def boundary_constraint(epsl, C, S, upper_boundary=25):
+    '''Defines a upper boundary for the parameters using a sigmod function as penaulty'''
+    return 0.5 * jnp.sum(C * jax.nn.sigmoid((epsl-upper_boundary)*S))
 
 
 @jit
@@ -278,21 +251,19 @@ def radius_of_gyration(
     model, system, key, start_temperature, comm,
     n_chains, n_atoms_per_chain, chain_indices, chain_masses,   # arguments from unpacked reference dict
     metric, target_rg, rg_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
-    boundary_S=None, boundary_C=None, constraint=None,
+    boundary=None, boundary_S=5, boundary_C=500, constraint=None,
 ):
-    
-    # TODO: Types here won't work with epsl_table and sgm_table
     epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
         epsl_table, key, system.topol, system.config, start_temperature
     )
-   
+
     comm_size = comm.Get_size()
     n_frames = len(trj["positions"])
     mean_Rg = 0.0
-
+    
     # CHECK: skip the initial equilibration steps
     n_skip = 0
     n_frames_adj = n_frames - n_skip
@@ -320,10 +291,9 @@ def radius_of_gyration(
     if constraint:
         error += constraint(model.LJ_param, k_constraint, epsl_constraint)
 
-
     # Prevent interaction parameter from reaching unphysical values (hopefully)
-    if boundary_C:
-        error += boundary_constraint(epsl_table, boundary_C, boundary_S)
+    if boundary:
+        error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
 
     return error, (
         {"radius of gyration": mean_Rg},
