@@ -168,7 +168,7 @@ def density_and_apl(
     model, system, key, start_temperature, comm,
     z_range, com_type, n_lipids, target_density, target_apl,    # System specific arguments
     metric, density_weight=1.0, k_constraint=0.01, apl_weight=1.0, width_ratio=1.0,   # General arguments for all systems (nn_options.loss_args)
-    boundary=None, boundary_S=None, boundary_C=None, constraint=None,
+    boundary=None, boundary_S=5, boundary_C=500, constraint=None,
 ):
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
 
