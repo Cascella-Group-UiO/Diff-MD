@@ -152,6 +152,7 @@ def lateral_density_kde(
     kde_density, centered_pos, types,
     z_range, bandwidth, bin_size, scaling_factor, config,
 ):
+
     for i, t in enumerate(config.unique_types):
         sel = jnp.where(types == t, size=config.particle_per_type[t])
         type_t_pos = centered_pos[sel]
@@ -173,6 +174,7 @@ def density_and_apl(
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
 
     epsl_table, param_constraints, types = get_LJ_param(model, system.config, jnp.array(system.types))
+
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
@@ -201,7 +203,7 @@ def density_and_apl(
         xy_apl += xy_area
 
         fixed_sel = jnp.where(
-            types == com_type, size=config.particle_per_type[com_type]
+            system.types == com_type, size=config.particle_per_type[com_type]
         )
         tails = pos[fixed_sel, 2]
 
@@ -210,7 +212,7 @@ def density_and_apl(
 
         kde_density = lateral_density_kde(
             # fmt: off
-            kde_density, centered_pos, types,
+            kde_density, centered_pos, system.types,
             z_range, bandwidth, bin_size, scaling_factor, config,
         )
 
@@ -233,7 +235,7 @@ def density_and_apl(
     if constraint:
         error += constraint(model.LJ_param, k_constraint, param_constraints)
 
-    # Prevent parameters from reaching unphysical values (hopefully)
+    # Prevent parameters from reaching unphysical values
     if boundary_S:
         error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
 
@@ -262,7 +264,7 @@ def radius_of_gyration(
     comm_size = comm.Get_size()
     n_frames = len(trj["positions"])
     mean_Rg = 0.0
-    
+
     # CHECK: skip the initial equilibration steps
     n_skip = 0
     n_frames_adj = n_frames - n_skip
@@ -290,7 +292,7 @@ def radius_of_gyration(
     if constraint:
         error += constraint(model.LJ_param, k_constraint, epsl_constraint)
 
-    # Prevent interaction parameter from reaching unphysical values (hopefully)
+    # Prevent interaction parameter from reaching unphysical values
     if boundary:
         error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
 
@@ -298,7 +300,7 @@ def radius_of_gyration(
         {"radius of gyration": mean_Rg},
         trj,
         key,
-        config,
+        config
     )
 
 
