@@ -44,7 +44,6 @@ def save_params(filename: str, toml: dict[str, Any], params: GeneralModel) -> No
         num_pairs = len(toml["nn"]["model"]["LJ_param"])
         num_params = len(params.LJ_param)
 
-        print(f'num_pairs: {num_pairs}\nnum_params: {num_params}')
         if num_pairs > num_params: 
             idx = []
             for i, pair in enumerate(toml["nn"]["model"]["LJ_param"]):
