@@ -139,12 +139,13 @@ def main(args, comm):
         for i, system in enumerate(dataset):
             Logger.rank0.debug(f"Simulating system: {system.name}")
 
-            loss_value, (output, trj, _, config) = nn_options.loss(
+            loss_value, (output, trj, _, config, types) = nn_options.loss(
                 # fmt: off
                 params, system, key, init_temps[i], comm,
                 **nn_options.loss_args, **system_options.system_args[system.name]
             )
             Logger.rank0.debug(f"Loss = {loss_value}")
+
 
             for k, v in output.items():
                 if k == "density":
@@ -162,7 +163,7 @@ def main(args, comm):
 
             store_static(
                 # fmt: off
-                out_dataset, system.names, system.types, system.indices, config, system.topol.bonds_2[0], system.topol.bonds_2[1],
+                out_dataset, system.names, types, system.indices, config, system.topol.bonds_2[0], system.topol.bonds_2[1],
                 system.topol.molecules, molecules=system.molecules, velocity_out=False, force_out=False, charges=True,
             )
             write_full_trajectory(out_dataset, trj, system.indices, config)

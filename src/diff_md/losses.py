@@ -31,19 +31,20 @@ def get_LJ_param(
             pairs_to_train = pairs_to_train.at[i].set(jnp.argwhere(ti==ttlj_full)[0])
 
         for k, (i, j) in enumerate(pairs_to_train):
-            if i&j in config.unique_types: 
+            if i&j in config.unique_types: # NOTE: This is probably not doing what I think it is 
                 # Convert to indices in config.ttlj 
                 i = jnp.where(jnp.asarray(config.unique_types)==i)[0]
                 j = jnp.where(jnp.asarray(config.unique_types)==j)[0]
                 
                 dummy_lj = dummy_lj.at[config.type_to_LJ[i, j]].set(model.LJ_param[k])       
 
-        # Correct types to the indices used in config [0, 1, 6] -> [0, 1, 2]
-        types = jnp.searchsorted(jnp.asarray(config.unique_types), types)
+    # Correct types to the indices used in config [0, 1, 6] -> [0, 1, 2]
+    types = jnp.where(jnp.expand_dims(jnp.asarray(config.unique_types), 0) == jnp.expand_dims(types, 1))[1]
+    # types = jnp.searchsorted(jnp.asarray(config.unique_types), types)
 
-        # for tte, e in zip(model.type_to_LJ, model.LJ_param):
-        #     if tte in config.type_to_LJ:
-        #         dummy_lj = dummy_lj.at[tte].set(e)
+    # for tte, e in zip(model.type_to_LJ, model.LJ_param):
+    #     if tte in config.type_to_LJ:
+    #         dummy_lj = dummy_lj.at[tte].set(e)
 
     for i, ti in enumerate(config.unique_types):
         if model.type_to_LJ.ndim == 1:
@@ -169,11 +170,21 @@ def density_and_apl(
     model, system, key, start_temperature, comm,
     z_range, com_type, n_lipids, target_density, target_apl,    # System specific arguments
     metric, density_weight=1.0, k_constraint=0.01, apl_weight=1.0, width_ratio=1.0,   # General arguments for all systems (nn_options.loss_args)
-    boundary=None, boundary_S=5, boundary_C=500, constraint=None,
+    boundary=None, boundary_S=2, boundary_C=500, constraint=None,
 ):
     """Loss function for lipid membranes based on lateral density profile and area per lipid"""
 
     epsl_table, param_constraints, types = get_LJ_param(model, system.config, jnp.array(system.types))
+
+    # print()
+    # print('INSIDE GET PARAM')
+    # # print('config unique types', system.config.unique_types)
+    # # print('system type', system.types)
+    # print('Corrected types', types)
+    # print('U types', jnp.unique(types))
+
+    # print(epsl_table)
+    # print()
 
     trj, key, config = simulator(
         # fmt: off
@@ -244,6 +255,7 @@ def density_and_apl(
         trj,
         key,
         config,
+        types
     )
 
 
@@ -252,14 +264,20 @@ def radius_of_gyration(
     model, system, key, start_temperature, comm,
     n_chains, n_atoms_per_chain, chain_indices, chain_masses,   # arguments from unpacked reference dict
     metric, target_rg, rg_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
-    boundary=None, boundary_S=5, boundary_C=500, constraint=None,
+    boundary=None, boundary_S=2, boundary_C=500, constraint=None,
 ):
     epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))
+
+    # print(epsl_table)
+    # print(system.config.sgm_table)
+
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
         epsl_table, key, system.topol, system.config, start_temperature
     )
+
+
 
     comm_size = comm.Get_size()
     n_frames = len(trj["positions"])
