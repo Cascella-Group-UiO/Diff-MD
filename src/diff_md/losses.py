@@ -255,7 +255,7 @@ def density_and_apl(
         trj,
         key,
         config,
-        types
+        # types
     )
 
 
@@ -276,8 +276,6 @@ def radius_of_gyration(
         model, system.positions, system.velocities, types, system.masses, system.charges,
         epsl_table, key, system.topol, system.config, start_temperature
     )
-
-
 
     comm_size = comm.Get_size()
     n_frames = len(trj["positions"])
