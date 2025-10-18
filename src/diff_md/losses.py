@@ -165,6 +165,40 @@ def lateral_density_kde(
     return kde_density
 
 
+@jit
+def unwrap(traj, box_size):
+
+    shifts = jnp.array([
+        [x, y, z] for x in [-1, 0, 1] 
+                   for y in [-1, 0, 1] 
+                   for z in [-1, 0, 1]
+    ])
+    
+    for frame, pos in enumerate(traj):
+        if frame == 0: 
+            continue
+        
+        # Generate all periodic images
+        images = (shifts * box_size[frame]) + jnp.expand_dims(traj[frame], 1)
+        
+        # Calculate displacements
+        disp = images - jnp.expand_dims(traj[frame-1], 1)
+        
+        # Calculate squared distances
+        dist_sq = jnp.sum(disp**2, axis=2)
+        
+        # Find the image with minimum distance for each atom
+        min_indices = jnp.argmin(dist_sq, axis=1)
+        
+        # Select the minimum displacement image for each atom
+        new_positions = images[jnp.arange(len(images)), min_indices]
+        
+        # Update positions
+        traj = traj.at[frame].set(new_positions)
+    
+    return traj
+
+
 def density_and_apl(
     # fmt: off
     model, system, key, start_temperature, comm,
@@ -285,7 +319,12 @@ def radius_of_gyration(
     n_skip = 0
     n_frames_adj = n_frames - n_skip
 
-    for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
+    trajectory = jnp.asarray(trj["positions"][n_skip:])
+    box_traj = jnp.asarray(trj["box"][n_skip:])
+
+    trajectory = unwrap(trajectory, box_traj)
+
+    for pos, box in zip(trajectory, box_traj):
         chains_pos = jnp.take(pos, chain_indices, axis=0)
         box = jnp.reshape(box, (1, 3))
         chains_pos = jnp.mod(chains_pos, box)
@@ -316,7 +355,8 @@ def radius_of_gyration(
         {"radius of gyration": mean_Rg},
         trj,
         key,
-        config
+        config,
+        # types
     )
 
 
