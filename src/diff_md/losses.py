@@ -302,9 +302,6 @@ def radius_of_gyration(
 ):
     epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))
 
-    # print(epsl_table)
-    # print(system.config.sgm_table)
-
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,
@@ -319,12 +316,10 @@ def radius_of_gyration(
     n_skip = 0
     n_frames_adj = n_frames - n_skip
 
-    trajectory = jnp.asarray(trj["positions"][n_skip:])
-    box_traj = jnp.asarray(trj["box"][n_skip:])
+    # trajectory = jnp.asarray(trj["positions"][n_skip:])
+    # box_traj = jnp.asarray(trj["box"][n_skip:])
 
-    trajectory = unwrap(trajectory, box_traj)
-
-    for pos, box in zip(trajectory, box_traj):
+    for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
         chains_pos = jnp.take(pos, chain_indices, axis=0)
         box = jnp.reshape(box, (1, 3))
         chains_pos = jnp.mod(chains_pos, box)

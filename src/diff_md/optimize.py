@@ -139,7 +139,7 @@ def main(args, comm):
         for i, system in enumerate(dataset):
             Logger.rank0.debug(f"Simulating system: {system.name}")
 
-            loss_value, (output, trj, _, config, types) = nn_options.loss(
+            loss_value, (output, trj, _, config) = nn_options.loss(
                 # fmt: off
                 params, system, key, init_temps[i], comm,
                 **nn_options.loss_args, **system_options.system_args[system.name]
