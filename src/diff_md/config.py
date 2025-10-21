@@ -143,6 +143,7 @@ class Config:
             k_vector=k_vector,
             k_meshgrid=m_grid,
         )
+      
 
     @classmethod
     def constructor(
@@ -522,3 +523,65 @@ def get_config(
     
 
     return config, jnp.array(types)
+
+
+
+@jit
+def unwrap(traj, box_size):
+
+    shifts = jnp.array([
+        [x, y, z] for x in [-1, 0, 1] 
+                   for y in [-1, 0, 1] 
+                   for z in [-1, 0, 1]
+    ])
+    
+    for frame, _ in enumerate(traj):
+        if frame == 0: 
+            continue
+        
+        # Generate all periodic images
+        images = (shifts * box_size[frame]) + jnp.expand_dims(traj[frame], 1)
+        
+        # Calculate displacements
+        disp = images - jnp.expand_dims(traj[frame-1], 1)
+        
+        # Calculate squared distances
+        dist_sq = jnp.sum(disp**2, axis=2)
+        
+        # Find the image with minimum distance for each atom
+        min_indices = jnp.argmin(dist_sq, axis=1)
+        
+        # Select the minimum displacement image for each atom
+        new_positions = images[jnp.arange(len(images)), min_indices]
+        
+        # Update positions
+        traj = traj.at[frame].set(new_positions)
+    
+    return traj
+
+
+@jit
+def center_molecule(traj, box_size, chain_indices):
+        
+    traj = jnp.asarray(traj)
+    box_size = jnp.asarray(box_size)
+    
+    traj = unwrap(traj, box_size)
+
+    for frame, _ in enumerate(traj):
+        # Calculate center of geometry
+        cog = jnp.mean(traj[frame][chain_indices], axis=1)
+        
+        # Calculate shift needed to center COG in box
+        box_center = box_size[frame] / 2
+        shift_to_center = box_center - cog
+        
+        # Apply shift to center the molecule
+        traj = traj.at[frame].add(shift_to_center)
+        
+        # WRAP BACK INTO THE BOX
+        traj = traj.at[frame].set(jnp.mod(traj[frame], box_size[frame]))
+
+    return traj  
+
+

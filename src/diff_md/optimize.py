@@ -20,7 +20,7 @@ from .losses import get_LJ_param
 from .nn_options import get_training_parameters, get_system_options
 from .simulate import simulator
 from .models import GeneralModel
-
+from .config import center_molecule
 
 # NOTE: double precision helps mitigate gradient explosion, but it's expensive
 # jax_conf.update("jax_enable_x64", True)
@@ -215,6 +215,15 @@ def main(args, comm):
                     params, start_pos[i], start_vel[i], system.types, system.masses, system.charges,
                     epsl, key, system.topol, start_config[i], start_temperature, nn_options.equilibration
                 )
+
+                # Currently needed for correct Rg calculation with teacher-forcing
+                if nn_options.loss.__name__ == 'radius_of_gyration':
+                    trj["positions"] = center_molecule(
+                            trj["positions"], 
+                            trj["box"], 
+                            system_options.system_args[system.name]['chain_indices']
+                        )
+                    
                 system.positions, system.velocities = (
                     trj["positions"][-1],
                     trj["velocities"][-1],
