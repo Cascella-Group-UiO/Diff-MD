@@ -526,7 +526,7 @@ def get_config(
 
 
 
-@jit
+# @jit
 def unwrap(traj, box_size):
 
     shifts = jnp.array([
@@ -560,7 +560,7 @@ def unwrap(traj, box_size):
     return traj
 
 
-@jit
+# @jit
 def center_molecule(traj, box_size, chain_indices):
         
     traj = jnp.asarray(traj)
