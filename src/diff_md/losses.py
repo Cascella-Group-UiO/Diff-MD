@@ -165,39 +165,6 @@ def lateral_density_kde(
     return kde_density
 
 
-@jit
-def unwrap(traj, box_size):
-
-    shifts = jnp.array([
-        [x, y, z] for x in [-1, 0, 1] 
-                   for y in [-1, 0, 1] 
-                   for z in [-1, 0, 1]
-    ])
-    
-    for frame, pos in enumerate(traj):
-        if frame == 0: 
-            continue
-        
-        # Generate all periodic images
-        images = (shifts * box_size[frame]) + jnp.expand_dims(traj[frame], 1)
-        
-        # Calculate displacements
-        disp = images - jnp.expand_dims(traj[frame-1], 1)
-        
-        # Calculate squared distances
-        dist_sq = jnp.sum(disp**2, axis=2)
-        
-        # Find the image with minimum distance for each atom
-        min_indices = jnp.argmin(dist_sq, axis=1)
-        
-        # Select the minimum displacement image for each atom
-        new_positions = images[jnp.arange(len(images)), min_indices]
-        
-        # Update positions
-        traj = traj.at[frame].set(new_positions)
-    
-    return traj
-
 
 def density_and_apl(
     # fmt: off
