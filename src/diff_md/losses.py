@@ -210,16 +210,6 @@ def density_and_apl(
 
     epsl_table, param_constraints, types = get_LJ_param(model, system.config, jnp.array(system.types))
 
-    # print()
-    # print('INSIDE GET PARAM')
-    # # print('config unique types', system.config.unique_types)
-    # # print('system type', system.types)
-    # print('Corrected types', types)
-    # print('U types', jnp.unique(types))
-
-    # print(epsl_table)
-    # print()
-
     trj, key, config = simulator(
         # fmt: off
         model, system.positions, system.velocities, types, system.masses, system.charges,

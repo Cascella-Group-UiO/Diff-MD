@@ -241,6 +241,8 @@ def main(args, comm):
                     )
                     system.config = config
                 init_temps[i] = False
+                epoch_loss += loss_value
+
             else:
                 params, opt_state, loss_value, trj, _, _ = step(params, opt_state, key)
                 epoch_loss += loss_value
