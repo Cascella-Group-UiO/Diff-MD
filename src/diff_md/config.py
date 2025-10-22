@@ -525,9 +525,31 @@ def get_config(
     return config, jnp.array(types)
 
 
+@jit
+def update_traj(traj, box_size, frame, shifts):
+    # Generate all periodic images
+    images = (shifts * box_size[frame]) + jnp.expand_dims(traj[frame], 1)
+    
+    # Calculate displacements
+    disp = images - jnp.expand_dims(traj[frame-1], 1)
+    
+    # Calculate squared distances (avoid sqrt for performance)
+    dist_sq = jnp.sum(disp**2, axis=2)
+    
+    # Find the image with minimum distance for each atom
+    min_indices = jnp.argmin(dist_sq, axis=1)
+    
+    # Select the minimum displacement image for each atom
+    new_positions = images[jnp.arange(len(images)), min_indices]
+    
+    # Update positions
+    traj = traj.at[frame].set(new_positions)
+    
+    return traj
 
-# @jit
+
 def unwrap(traj, box_size):
+    print('Unwraping')
 
     shifts = jnp.array([
         [x, y, z] for x in [-1, 0, 1] 
@@ -539,30 +561,19 @@ def unwrap(traj, box_size):
         if frame == 0: 
             continue
         
-        # Generate all periodic images
-        images = (shifts * box_size[frame]) + jnp.expand_dims(traj[frame], 1)
-        
-        # Calculate displacements
-        disp = images - jnp.expand_dims(traj[frame-1], 1)
-        
-        # Calculate squared distances
-        dist_sq = jnp.sum(disp**2, axis=2)
-        
-        # Find the image with minimum distance for each atom
-        min_indices = jnp.argmin(dist_sq, axis=1)
-        
-        # Select the minimum displacement image for each atom
-        new_positions = images[jnp.arange(len(images)), min_indices]
-        
-        # Update positions
-        traj = traj.at[frame].set(new_positions)
+        traj = update_traj(traj, box_size, frame, shifts)
+
+        # images = (shifts * box_size[frame]) + jnp.expand_dims(traj[frame], 1)
+        # disp = images - jnp.expand_dims(traj[frame-1], 1)
+        # dist_sq = jnp.sum(disp**2, axis=2)
+        # min_indices = jnp.argmin(dist_sq, axis=1)
+        # new_positions = images[jnp.arange(len(images)), min_indices]
+        # traj = traj.at[frame].set(new_positions)
     
     return traj
 
 
-# @jit
 def center_molecule(traj, box_size, chain_indices):
-        
     traj = jnp.asarray(traj)
     box_size = jnp.asarray(box_size)
     
@@ -581,7 +592,7 @@ def center_molecule(traj, box_size, chain_indices):
         
         # WRAP BACK INTO THE BOX
         traj = traj.at[frame].set(jnp.mod(traj[frame], box_size[frame]))
-
+    
     return traj  
 
 

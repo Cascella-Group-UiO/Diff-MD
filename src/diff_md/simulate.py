@@ -54,6 +54,12 @@ def simulator(
     # Dict to save trajectory
     trj = {}
 
+    # All frames are kept in RAM and unwraping the whole trajectory takes long.
+    if equilibration: 
+        n_print = 100 
+    else:   
+        n_print = config.n_print
+
     # Arrays to store dihedral angle information for fitting 2d distribution
     # if protein_flag:
     #     dihedral_phi = jnp.empty(0)
@@ -207,32 +213,30 @@ def simulator(
         phi_fourier = jnp.zeros((config.n_types, *config.fft_shape), dtype=ctype)
 
     # Save step 0 to trajectory
-    if config.n_print > 0:
+    if n_print > 0:
         # NOTE: we don't need to save all this stuff for the differentiable MD
         kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(velocities**2, axis=1))
-        #kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
-        # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
         temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
-        trj["angle energy"] = [angle_energy]
-        trj["bond energy"] = [bond_energy]
-        trj["box"] = [config.box_size]
-        trj["dihedral energy"] = [dihedral_energy]
-        trj["elec energy"] = [elec_energy]
-        trj["LJ energy"] = [LJ_energy]
+        # trj["angle energy"] = [angle_energy]
+        # trj["bond energy"] = [bond_energy]
+        # trj["dihedral energy"] = [dihedral_energy]
+        # trj["elec energy"] = [elec_energy]
+        # trj["LJ energy"] = [LJ_energy]
 
-        trj["forces"] = [
-            bond_forces
-            + angle_forces
-            + dihedral_forces
-            + improper_forces
-            + LJ_forces
-            + reconstr_forces
-            + elec_forces
-        ]
-        trj["kinetic energy"] = [kinetic_energy]
-        trj["positions"] = [positions]
+        # trj["forces"] = [
+        #     bond_forces
+        #     + angle_forces
+        #     + dihedral_forces
+        #     + improper_forces
+        #     + LJ_forces
+        #     + reconstr_forces
+        #     + elec_forces
+        # ]
+        # trj["kinetic energy"] = [kinetic_energy]
         trj["temperature"] = [temperature]
+        trj["positions"] = [positions]
         trj["velocities"] = [velocities]
+        trj["box"] = [config.box_size]
 
     # MD loop
     n_steps = equilibration if equilibration else config.n_steps
@@ -494,30 +498,29 @@ def simulator(
                 velocities = cancel_com_momentum(velocities, config)
 
         # Update trajectory dict, print later after calculating grads
-        if config.n_print > 0:
-            if onp.mod(step, config.n_print) == 0 and step != 0:
-                frame = step // config.n_print
+        if n_print > 0:
+            if onp.mod(step, n_print) == 0 and step != 0:
+                frame = step // n_print
                 kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(velocities**2, axis=1))
-                # kinetic_energy = 0.5 * jnp.sum(masses * jnp.linalg.norm(velocities, axis=1)**2)
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
-                trj["angle energy"].append(angle_energy)
-                trj["bond energy"].append(bond_energy)
-                trj["box"].append(config.box_size)
-                trj["dihedral energy"].append(dihedral_energy)
-                trj["elec energy"].append(elec_energy)
-                trj["LJ energy"].append(LJ_energy)
-                trj["forces"].append(
-                    bond_forces
-                    + angle_forces
-                    + dihedral_forces
-                    + LJ_forces
-                    + reconstr_forces
-                    + elec_forces
-                )
-                trj["kinetic energy"].append(kinetic_energy)
-                trj["positions"].append(positions)
+                # trj["angle energy"].append(angle_energy)
+                # trj["bond energy"].append(bond_energy)
+                # trj["dihedral energy"].append(dihedral_energy)
+                # trj["elec energy"].append(elec_energy)
+                # trj["LJ energy"].append(LJ_energy)
+                # trj["forces"].append(
+                #     bond_forces
+                #     + angle_forces
+                #     + dihedral_forces
+                #     + LJ_forces
+                #     + reconstr_forces
+                #     + elec_forces
+                # )
+                # trj["kinetic energy"].append(kinetic_energy)
                 trj["temperature"].append(temperature)
+                trj["positions"].append(positions)
                 trj["velocities"].append(velocities)
+                trj["box"].append(config.box_size)
 
     # if protein_flag:
     #     return (dihedral_phi, dihedral_theta), trj, key
