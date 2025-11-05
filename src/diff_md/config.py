@@ -380,11 +380,6 @@ def get_config(
 
             LJ_param = LJ_param.at[ttlj].set(config_dict["epsl_table"])  # TODO: Check if this is not dangerous
 
-            # print(name_to_type)
-            # print(unique_types)
-            # print(config_dict['type_to_LJ'])
-            # print(LJ_param)
-            # print('param in config', config_dict["epsl_table"])
 
             config_dict["LJ_param"] = LJ_param
 
@@ -549,12 +544,11 @@ def update_traj(traj, box_size, frame, shifts):
 
 
 def unwrap(traj, box_size):
-    print('Unwraping')
 
     shifts = jnp.array([
         [x, y, z] for x in [-1, 0, 1] 
-                   for y in [-1, 0, 1] 
-                   for z in [-1, 0, 1]
+                  for y in [-1, 0, 1] 
+                  for z in [-1, 0, 1]
     ])
     
     for frame, _ in enumerate(traj):

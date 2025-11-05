@@ -49,7 +49,6 @@ def get_LJ_param(
     for i, ti in enumerate(config.unique_types):
         if model.type_to_LJ.ndim == 1:
             epsl = epsl.at[i].set(dummy_lj[config.type_to_LJ[i]])
-            # print(epsl)
         else:
             epsl = epsl.at[i].set(model.LJ_param[model.type_to_LJ[ti, config.unique_types]])
 

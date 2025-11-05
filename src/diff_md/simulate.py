@@ -193,6 +193,7 @@ def simulator(
 
     # Calculate initial electrostatic energy and forces
     if charges is not None:
+        print(charges)
         if config.coulombtype == 1:
             elec_fog = jnp.zeros((3, *config.mesh_size))
             elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(

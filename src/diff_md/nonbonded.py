@@ -24,7 +24,7 @@ def get_LJ_energy_and_forces(
     pair_params: Tuple[Array, Array, Array, Array, Array, Array, Array, Array],
     config: Config
 ) -> Tuple[float, Array]:
-
+    
     forces = jnp.zeros_like(forces)
 
     rlj = config.rlj #+ 5e-7
