@@ -54,7 +54,7 @@ class System:
 
                 charges = (
                     None
-                    if args.no_charges or np.any(np.array(in_file["charge"]) == 0.)
+                    if args.no_charges or np.all(np.array(in_file["charge"]) == 0.)
                     else jnp.reshape(np.array(in_file["charge"]), (-1, 1))
                 )
                 box = jnp.array(in_file.attrs["box"])
