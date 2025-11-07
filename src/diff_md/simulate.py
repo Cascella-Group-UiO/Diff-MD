@@ -97,7 +97,7 @@ def simulator(
     max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
     max_neighbors += 50000 # Add a buffer for safety
 
-    # Inicialize neighbor list
+    # Initialize neighbor list
     neigh_i = jnp.full(max_neighbors, -1, dtype=int)
     neigh_j = jnp.full(max_neighbors, -1, dtype=int)
     neigh_i, neigh_j = nlist(positions, config.box_size, rv, neigh_i, neigh_j)
@@ -238,7 +238,9 @@ def simulator(
         trj["velocities"] = [velocities]
         trj["box"] = [config.box_size]
 
-    # MD loop
+    ###################
+    # # # MD LOOP # # #
+    ###################
     n_steps = equilibration if equilibration else config.n_steps
     for step in range(1, n_steps + 1):
         # First outer rRESPA velocity step
@@ -326,7 +328,8 @@ def simulator(
         # Second rRESPA velocity step
         if config.barostat:
             # Get electrostatic potential
-            if config.coulombtype and charges is not None:
+            # if config.coulombtype and charges is not None:
+            if config.coulombtype:
                 pair_params = apply_nlist_elec(
                     neigh_i, 
                     neigh_j, 
@@ -373,7 +376,7 @@ def simulator(
                         elec_energy, 
                         elec_potential, 
                         elec_forces,
-                        ele_pressure
+                        elec_pressure
                     ) = get_reaction_field_energy_and_forces_npt(
                         elec_forces, pair_params, config, excl_pair_params
                     )
@@ -395,6 +398,7 @@ def simulator(
                 + bond_pressure
                 + angle_pressure
                 + dihedral_pressure
+                + elec_pressure
             ) / config.volume
 
             # Call barostat
