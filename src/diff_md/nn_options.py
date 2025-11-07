@@ -240,7 +240,7 @@ def get_system_options(
             ]
         
         # Get data for Radius of gyration
-        if args["loss"]["name"] == "radius_of_gyration":
+        if "radius_of_gyration" in args["loss"]["name"]:
             n_chains = args["system_args"][dir]["n_chains"]
             chain = np.bytes_(args["system_args"][dir].pop("resname"))
             chain_indices = jnp.where(system.resnames == chain)[0]

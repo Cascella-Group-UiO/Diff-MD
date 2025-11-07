@@ -193,7 +193,6 @@ def simulator(
 
     # Calculate initial electrostatic energy and forces
     if charges is not None:
-        print(charges)
         if config.coulombtype == 1:
             elec_fog = jnp.zeros((3, *config.mesh_size))
             elec_energy, elec_potential, elec_forces = get_elec_energy_potential_and_forces(
@@ -218,22 +217,22 @@ def simulator(
         # NOTE: we don't need to save all this stuff for the differentiable MD
         kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(velocities**2, axis=1))
         temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
-        # trj["angle energy"] = [angle_energy]
-        # trj["bond energy"] = [bond_energy]
-        # trj["dihedral energy"] = [dihedral_energy]
-        # trj["elec energy"] = [elec_energy]
-        # trj["LJ energy"] = [LJ_energy]
+        trj["angle energy"] = [angle_energy]
+        trj["bond energy"] = [bond_energy]
+        trj["dihedral energy"] = [dihedral_energy]
+        trj["elec energy"] = [elec_energy]
+        trj["LJ energy"] = [LJ_energy]
 
-        # trj["forces"] = [
-        #     bond_forces
-        #     + angle_forces
-        #     + dihedral_forces
-        #     + improper_forces
-        #     + LJ_forces
-        #     + reconstr_forces
-        #     + elec_forces
-        # ]
-        # trj["kinetic energy"] = [kinetic_energy]
+        trj["forces"] = [
+            bond_forces
+            + angle_forces
+            + dihedral_forces
+            + improper_forces
+            + LJ_forces
+            + reconstr_forces
+            + elec_forces
+        ]
+        trj["kinetic energy"] = [kinetic_energy]
         trj["temperature"] = [temperature]
         trj["positions"] = [positions]
         trj["velocities"] = [velocities]
@@ -504,20 +503,20 @@ def simulator(
                 frame = step // n_print
                 kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(velocities**2, axis=1))
                 temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
-                # trj["angle energy"].append(angle_energy)
-                # trj["bond energy"].append(bond_energy)
-                # trj["dihedral energy"].append(dihedral_energy)
-                # trj["elec energy"].append(elec_energy)
-                # trj["LJ energy"].append(LJ_energy)
-                # trj["forces"].append(
-                #     bond_forces
-                #     + angle_forces
-                #     + dihedral_forces
-                #     + LJ_forces
-                #     + reconstr_forces
-                #     + elec_forces
-                # )
-                # trj["kinetic energy"].append(kinetic_energy)
+                trj["angle energy"].append(angle_energy)
+                trj["bond energy"].append(bond_energy)
+                trj["dihedral energy"].append(dihedral_energy)
+                trj["elec energy"].append(elec_energy)
+                trj["LJ energy"].append(LJ_energy)
+                trj["forces"].append(
+                    bond_forces
+                    + angle_forces
+                    + dihedral_forces
+                    + LJ_forces
+                    + reconstr_forces
+                    + elec_forces
+                )
+                trj["kinetic energy"].append(kinetic_energy)
                 trj["temperature"].append(temperature)
                 trj["positions"].append(positions)
                 trj["velocities"].append(velocities)

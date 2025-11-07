@@ -552,15 +552,15 @@ def write_full_trajectory(
     for frame, (  # type: ignore
         angle_energy,
         bond_energy,
-        box_sizes,
         dih_energy,
         elec_energy,
         LJ_energy,
         forces,
         kinetic_energy,
-        positions,
         temperature,
+        positions,
         velocities,
+        box_sizes,
     ) in enumerate(zip(*trj_dict.values())):
         for dset in (
             h5md.positions_step,

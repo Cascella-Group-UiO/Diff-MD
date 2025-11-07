@@ -150,19 +150,25 @@ def boundary_constraint(epsl, C, S, upper_boundary=25):
 def lateral_density_kde(
     # fmt: off
     kde_density, centered_pos, types,
-    z_range, bandwidth, bin_size, scaling_factor, config,
+    z_range, bandwidth, bin_size, scaling_factor, config, box_z
 ):
 
     for i, t in enumerate(config.unique_types):
         sel = jnp.where(types == t, size=config.particle_per_type[t])
         type_t_pos = centered_pos[sel]
-        gaussians = gaussian_kde(type_t_pos, bw_method=bandwidth)
+
+        # Reflect to account for PBC
+        z_lower = - box_z + type_t_pos
+        z_upper = box_z + type_t_pos
+        type_t_pos_reflected = jnp.concat((z_lower, type_t_pos, z_upper))
+        gaussians = gaussian_kde(type_t_pos_reflected, bw_method=bandwidth)
+
+        # gaussians = gaussian_kde(type_t_pos, bw_method=bandwidth)
         kde_value = (
-            gaussians(z_range) * bin_size * config.particle_per_type[t] / scaling_factor
+            gaussians(z_range) * bin_size * config.particle_per_type[t] / scaling_factor * 3
         )
         kde_density = kde_density.at[i].add(kde_value)
     return kde_density
-
 
 
 def density_and_apl(
@@ -214,7 +220,7 @@ def density_and_apl(
         kde_density = lateral_density_kde(
             # fmt: off
             kde_density, centered_pos, system.types,
-            z_range, bandwidth, bin_size, scaling_factor, config,
+            z_range, bandwidth, bin_size, scaling_factor, config, box_z
         )
 
     kde_density, _ = mpi4jax.allreduce(kde_density, op=MPI.SUM, comm=comm)
@@ -245,7 +251,7 @@ def density_and_apl(
         trj,
         key,
         config,
-        # types
+        types
     )
 
 
@@ -271,9 +277,6 @@ def radius_of_gyration(
     # CHECK: skip the initial equilibration steps
     n_skip = 0
     n_frames_adj = n_frames - n_skip
-
-    # trajectory = jnp.asarray(trj["positions"][n_skip:])
-    # box_traj = jnp.asarray(trj["box"][n_skip:])
 
     for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
         chains_pos = jnp.take(pos, chain_indices, axis=0)
@@ -304,6 +307,75 @@ def radius_of_gyration(
 
     return error, (
         {"radius of gyration": mean_Rg},
+        trj,
+        key,
+        config,
+        # types
+    )
+
+
+def radius_of_gyration_and_end_to_end(
+    # fmt: off
+    model, system, key, start_temperature, comm,
+    n_chains, n_atoms_per_chain, chain_indices, chain_masses,   # arguments from unpacked reference dict
+    metric, target_rg, target_end_to_end, rg_weight=1.0, end_to_end_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
+    boundary=None, boundary_S=2, boundary_C=500, constraint=None,
+):
+    epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))
+
+    trj, key, config = simulator(
+        # fmt: off
+        model, system.positions, system.velocities, types, system.masses, system.charges,
+        epsl_table, key, system.topol, system.config, start_temperature
+    )
+
+    comm_size = comm.Get_size()
+    n_frames = len(trj["positions"])
+    mean_Rg = 0.0
+    mean_end_to_end = 0.0
+
+    # CHECK: skip the initial equilibration steps
+    n_skip = 0
+    n_frames_adj = n_frames - n_skip
+
+    for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
+        # Calculate Rg
+        chains_pos = jnp.take(pos, chain_indices, axis=0)
+        box = jnp.reshape(box, (1, 3))
+        chains_pos = jnp.mod(chains_pos, box)
+
+        total_mass = jnp.sum(chain_masses, axis=1)
+        cog = jnp.sum(chains_pos, axis=1) / n_atoms_per_chain
+        cog = jnp.expand_dims(cog, axis=1)
+
+        Rg2 = jnp.sum(chain_masses * jnp.linalg.norm(chains_pos - cog, axis=2) ** 2, axis=1) / total_mass
+        Rg = jnp.sqrt(Rg2)
+
+        mean_Rg += jnp.sum(Rg) / n_chains
+
+        # Calculate end-to-end distance
+        mean_end_to_end += jnp.linalg.norm(chains_pos[0][-1] - chains_pos[0][0], axis=0) 
+
+    # Calculate error due to Rg
+    mean_Rg, _ = mpi4jax.allreduce(mean_Rg, op=MPI.SUM, comm=comm)
+    mean_Rg /= comm_size * n_frames_adj
+    error = rg_weight * metric(mean_Rg, target_rg)
+
+    # Calculate error due to end-to-end distance
+    mean_end_to_end, _ = mpi4jax.allreduce(mean_end_to_end, op=MPI.SUM, comm=comm)
+    mean_end_to_end /= comm_size * n_frames_adj
+    error += end_to_end_weight * metric(mean_end_to_end, target_end_to_end)
+
+    # Error from constraints
+    if constraint:
+        error += constraint(model.LJ_param, k_constraint, epsl_constraint)
+
+    # Prevent interaction parameter from reaching unphysical values
+    if boundary:
+        error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
+
+    return error, (
+        {"radius of gyration": mean_Rg, "end-to-end distance": mean_end_to_end},
         trj,
         key,
         config,
