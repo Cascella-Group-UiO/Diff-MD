@@ -208,12 +208,18 @@ def main(args, comm):
             start_temperature = init_temps[i]
             
             if nn_options.equilibration:
+                # Run a longer simulation after every N epochs
+                if nn_options.n_epochs_longer and onp.mod(epoch, nn_options.n_epochs_longer) == 0 and epoch != 0:
+                    equilibration = nn_options.n_steps_longer
+                else: 
+                    equilibration = nn_options.equilibration
+
                 # Restarts from initial positions
                 epsl, _, _ = get_LJ_param(params, system.config, system.types)
                 trj, key, config = simulator(
                     # fmt: off
                     params, start_pos[i], start_vel[i], system.types, system.masses, system.charges,
-                    epsl, key, system.topol, start_config[i], start_temperature, nn_options.equilibration
+                    epsl, key, system.topol, start_config[i], start_temperature, equilibration
                 )
 
                 # Currently needed for correct Rg calculation with teacher-forcing

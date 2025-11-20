@@ -474,7 +474,6 @@ def main(args):
 
             # Calculate pressure
             kinetic_energy = 0.5 * jnp.sum(system.masses * jnp.linalg.norm(velocities, axis=1)**2)    
-            # kinetic_energy = 0.5 * config.mass * jnp.sum(velocities * velocities)
             kinetic_pressure = 2.0 / 3.0 * kinetic_energy
             # TODO: Add elec. contribution
             pressure = (

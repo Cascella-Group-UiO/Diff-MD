@@ -318,7 +318,7 @@ def radius_of_gyration_and_end_to_end(
     # fmt: off
     model, system, key, start_temperature, comm,
     n_chains, n_atoms_per_chain, chain_indices, chain_masses,   # arguments from unpacked reference dict
-    metric, target_rg, target_end_to_end, rg_weight=1.0, end_to_end_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
+    metric, target_rg, target_end_to_end, rg_weight=10.0, end_to_end_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
     boundary=None, boundary_S=2, boundary_C=500, constraint=None,
 ):
     epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))

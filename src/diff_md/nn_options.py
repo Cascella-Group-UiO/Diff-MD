@@ -25,6 +25,8 @@ class NNoptions:
     chain: bool = False
     equilibration: int = 0
     shuffle: bool = False
+    n_epochs_longer: int = 0
+    n_steps_longer: int = 0
 
 @dataclasses.dataclass
 class System_options:
