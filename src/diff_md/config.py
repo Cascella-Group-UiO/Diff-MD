@@ -520,7 +520,7 @@ def get_config(
     return config, jnp.array(types)
 
 
-@jit
+# @jit
 def update_traj(traj, box_size, frame, shifts):
     # Generate all periodic images
     images = (shifts * box_size[frame]) + jnp.expand_dims(traj[frame], 1)
