@@ -55,7 +55,7 @@ def main(args, comm):
 
     def step(params, opt_state, key):
 
-        (loss_value, (output, trj, key, config)), grads = value_and_grad(
+        (loss_value, (output, trj, key, config, _)), grads = value_and_grad(
             nn_options.loss, has_aux=True
         )(
             params,
@@ -72,6 +72,8 @@ def main(args, comm):
             for k, v in output.items():
                 if k == "density":
                     onp.save(f"{destdir}/{system.name}_density.npy", v)
+                elif k == "Rg PDF":
+                    onp.save(f"{destdir}/{system.name}_Rg.npy", v)
                 else:
                     Logger.rank0.debug(f"{system.name} {k} = {v}")
 
@@ -151,6 +153,9 @@ def main(args, comm):
                 if k == "density":
                     Logger.rank0.debug("Saving density to 'debug_density.npy'")
                     onp.save(f"{args.destdir}/{system.name}_debug_density.npy", v)
+                elif k == "Rg PDF":
+                    Logger.rank0.debug("Saving Rg PDF to 'Rg.npy'")
+                    onp.save(f"{args.destdir}/{system.name}_Rg.npy", v)
                 else:
                     Logger.rank0.debug(f"{k} = {v}")
 

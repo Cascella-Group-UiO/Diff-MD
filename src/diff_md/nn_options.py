@@ -255,6 +255,27 @@ def get_system_options(
             args["system_args"][dir]["chain_indices"] = chain_indices
             args["system_args"][dir]["chain_masses"] = chain_masses
 
+        # Get data for Rg Probability density function
+        if "target_dist" in args["system_args"][dir]:
+            filename, ext = os.path.splitext(args["system_args"][dir]["target_dist"])
+            file_path = f"{dir}/{filename}{ext}"
+            print('Reading ref distribution from', file_path)
+            if ext == ".npy":
+                reference = jnp.array(np.load(file_path))
+            elif ext == ".xvg":
+                reference = jnp.array(
+                    # transpose so we can work with rows
+                    np.loadtxt(file_path, comments=["#", "@"]).T
+                )
+            else:
+                Logger.rank0.error(
+                    f"Target distribution filename '{file_path}' has the wrong extension."
+                    f"Valid extensions are '.npy' and '.xvg'."
+                )
+                exit()
+            args["system_args"][dir]["data_range"] = reference[0]
+            args["system_args"][dir]["target_dist"] = reference[1:]       
+
     system_options = System_options(args["system_args"])
 
 

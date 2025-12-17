@@ -147,6 +147,14 @@ def boundary_constraint(epsl, C, S, upper_boundary=25):
 
 
 @jit
+def kde(Rg_timeseries, kde_rg, data_range, bandwidth):
+    gaussians = gaussian_kde(Rg_timeseries, bw_method=bandwidth)
+    kde_value = gaussians(data_range)
+    kde_rg = kde_rg.at[...].set(kde_value)
+    return kde_rg
+
+
+@jit
 def lateral_density_kde(
     # fmt: off
     kde_density, centered_pos, types,
@@ -252,6 +260,79 @@ def density_and_apl(
         key,
         config,
         # types,
+    )
+
+
+def radius_of_gyration_dist(
+    # fmt: off
+    model, system, key, start_temperature, comm,
+    n_chains, n_atoms_per_chain, chain_indices, chain_masses,   
+    metric, data_range, target_dist, rg_weight=1.0, width_ratio=1.0, k_constraint=0.01,  
+    boundary=None, boundary_S=2, boundary_C=500, constraint=None, 
+):
+    epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))
+
+    trj, key, config = simulator(
+        # fmt: off
+        model, system.positions, system.velocities, types, system.masses, system.charges,
+        epsl_table, key, system.topol, system.config, start_temperature
+    )
+
+    comm_size = comm.Get_size()
+    n_frames = len(trj["positions"])
+    Rg_timeseries = jnp.zeros(n_frames)
+
+    n_bins = data_range.size
+    bin_size = data_range[1] - data_range[0]
+
+    kde_rg = jnp.zeros(n_bins)
+    bandwidth = float(width_ratio * bin_size)
+
+    # CHECK: skip the initial equilibration steps
+    n_skip = 0
+    n_frames_adj = n_frames - n_skip
+
+    for pos, box, frame in zip(trj["positions"][n_skip:], trj["box"][n_skip:], range(n_frames)):
+        chains_pos = jnp.take(pos, chain_indices, axis=0)
+        box = jnp.reshape(box, (1, 3))
+        chains_pos = jnp.mod(chains_pos, box)
+
+        total_mass = jnp.sum(chain_masses, axis=1)
+        cog = jnp.sum(chains_pos, axis=1) / n_atoms_per_chain
+        cog = jnp.expand_dims(cog, axis=1)
+
+        Rg2 = jnp.sum(chain_masses * jnp.linalg.norm(chains_pos - cog, axis=2) ** 2, axis=1) / total_mass
+        Rg = jnp.sqrt(Rg2)
+
+        Rg_timeseries = Rg_timeseries.at[frame].set(Rg[0])
+
+    kde_rg = kde(Rg_timeseries, kde_rg, data_range, bandwidth)
+
+    kde_rg, _ = mpi4jax.allreduce(kde_rg, op=MPI.SUM, comm=comm)
+    kde_rg /= comm_size # * n_frames_adj
+
+    # Calculate error due to probablity density function 
+    error = (
+        jnp.sum(rg_weight * metric(kde_rg, target_dist, axis=1))
+    )
+
+    # Error from constraints
+    if constraint:
+        error += constraint(model.LJ_param, k_constraint, epsl_constraint)
+
+    # Prevent interaction parameter from reaching unphysical values
+    if boundary:
+        error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
+
+    return error, (
+        {
+            "mean radius of gyration": jnp.mean(Rg_timeseries),
+            "Rg PDF": kde_rg
+        },
+        trj,
+        key,
+        config,
+        types
     )
 
 
