@@ -130,7 +130,7 @@ def get_training_parameters(
         for optim in args["optimizer"]:
             fun = getattr(optax, optim.pop("name"))
             optim_list.append(fun(**optim))
-        opt = optax.chain(*optim_list, optax.keep_params_nonnegative())  # Lennard-Jones parameters should not be negative
+        opt = optax.chain(*optim_list) 
     else:
         # fun = optax.chain(args["optimizer"].pop("name"), optax.keep_params_nonnegative())
         fun = getattr(optax, args["optimizer"].pop("name"))
@@ -139,8 +139,17 @@ def get_training_parameters(
         if isinstance(args["optimizer"]["learning_rate"], dict):
             learning_rate = args["optimizer"].pop("learning_rate")
             scheduler = getattr(optax, learning_rate.pop("schedule"))
+            
+            # TOML parses all keys as strings. TODO: Check wheter there is a better fix for this
+            if learning_rate['boundaries_and_scales']:
+                aux = {}
+                for k, v in learning_rate['boundaries_and_scales'].items():
+                    aux[int(k)] = v
+                learning_rate['boundaries_and_scales'] = aux
+                
             scheduler = scheduler(**learning_rate)
             opt = fun(learning_rate=scheduler, **args["optimizer"])
+            
         else:
             opt = fun(**args["optimizer"])
             # opt = optax.chain(fun(**args["optimizer"]), optax.keep_params_nonnegative())
