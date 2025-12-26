@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as onp
+from collections import OrderedDict
 
 from .barostat import berendsen, c_rescale
 from .force import (
@@ -52,7 +53,9 @@ def simulator(
     equilibration=0,
 ):
     # Dict to save trajectory
-    trj = {}
+    # trj = {}
+    trj = OrderedDict()
+
 
     # All frames are kept in RAM and unwraping the whole trajectory takes long.
     if equilibration: 

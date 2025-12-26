@@ -55,7 +55,7 @@ def main(args, comm):
 
     def step(params, opt_state, key):
 
-        (loss_value, (output, trj, key, config, _)), grads = value_and_grad(
+        (loss_value, (output, trj, key, config, types)), grads = value_and_grad(
             nn_options.loss, has_aux=True
         )(
             params,
@@ -111,7 +111,7 @@ def main(args, comm):
             f"Updated parameters\n{params}{50*'-'}",
         )
 
-        return params, opt_state, loss_value, trj, key, config
+        return params, opt_state, loss_value, trj, key, config, types
 
     # Read tomli file
     nn_options, params, toml_input = get_training_parameters(args.model)
@@ -158,10 +158,10 @@ def main(args, comm):
                     onp.save(f"{args.destdir}/{system.name}_Rg.npy", v)
                 else:
                     Logger.rank0.debug(f"{k} = {v}")
-
+            
             # Write debug simulation to h5md
             out_dataset = OutDataset(
-                f"{args.destdir}/{system.name}",
+                f"{args.destdir}/{system.name}/{rank:04d}",
                 "debug",
                 double_out=False,
             )
@@ -244,7 +244,7 @@ def main(args, comm):
 
             if nn_options.teacher_forcing:
                 # Teacher forcing == continuous simulation, restarting from the last step
-                params, opt_state, loss_value, trj, key, config = step(
+                params, opt_state, loss_value, trj, key, config, types = step(
                     params, opt_state, key
                 )
 
@@ -264,8 +264,28 @@ def main(args, comm):
                 epoch_loss += loss_value
 
             else:
-                params, opt_state, loss_value, trj, _, _ = step(params, opt_state, key)
+                params, opt_state, loss_value, trj, _, config, types = step(params, opt_state, key)
                 epoch_loss += loss_value
+            
+            if n_systems > 1:
+                simu_filename = f"{args.destdir}/step_{epoch}/{system.name}/{rank:04d}"
+            else:
+                simu_filename = f"{args.destdir}/step_{epoch}/{rank:04d}"
+
+            # Save trajectory
+            out_dataset = OutDataset(
+                simu_filename,
+                "debug",
+                double_out=False,
+            )
+            store_static(
+                # fmt: off
+                out_dataset, system.names, types, system.indices, config, system.topol.bonds_2[0], system.topol.bonds_2[1],
+                system.topol.molecules, molecules=system.molecules, velocity_out=False, force_out=False, charges=True,
+            )
+            write_full_trajectory(out_dataset, trj, system.indices, config)
+            out_dataset.file.close()            
+
 
         Logger.rank0.info(f"Epoch {epoch}, mean loss = {epoch_loss / n_systems}\n\n")
         if rank == 0:
