@@ -391,7 +391,7 @@ def radius_of_gyration(
         trj,
         key,
         config,
-        # types
+        types
     )
 
 
@@ -460,7 +460,7 @@ def radius_of_gyration_and_end_to_end(
         trj,
         key,
         config,
-        # types
+        types
     )
 
 
