@@ -247,6 +247,13 @@ def main(args, comm):
                 params, opt_state, loss_value, trj, key, config, types = step(
                     params, opt_state, key
                 )
+                
+                if nn_options.loss.__name__ == 'radius_of_gyration':
+                    trj["positions"] = center_molecule(
+                            trj["positions"], 
+                            trj["box"], 
+                            system_options.system_args[system.name]['chain_indices']
+                        )
 
                 if nn_options.equilibration:
                     start_pos[i], start_vel[i] = (
