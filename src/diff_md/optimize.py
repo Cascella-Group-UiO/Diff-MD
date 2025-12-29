@@ -228,7 +228,7 @@ def main(args, comm):
                 )
 
                 # Currently needed for correct Rg calculation with teacher-forcing
-                if nn_options.loss.__name__ == 'radius_of_gyration':
+                if 'radius_of_gyration' in nn_options.loss.__name__:
                     trj["positions"] = center_molecule(
                             trj["positions"], 
                             trj["box"], 
