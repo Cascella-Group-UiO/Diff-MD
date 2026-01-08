@@ -259,7 +259,7 @@ def density_and_apl(
         trj,
         key,
         config,
-        # types,
+        types,
     )
 
 
