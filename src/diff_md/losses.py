@@ -395,6 +395,151 @@ def radius_of_gyration(
     )
 
 
+def radius_of_gyration_median(
+    # fmt: off
+    model, system, key, start_temperature, comm,
+    n_chains, n_atoms_per_chain, chain_indices, chain_masses,   # arguments from unpacked reference dict
+    metric, target_rg, rg_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
+    boundary=None, boundary_S=2, boundary_C=500, constraint=None,
+):
+    epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))
+
+    trj, key, config = simulator(
+        # fmt: off
+        model, system.positions, system.velocities, types, system.masses, system.charges,
+        epsl_table, key, system.topol, system.config, start_temperature
+    )
+
+    comm_size = comm.Get_size()
+    n_frames = len(trj["positions"])
+    mean_Rg = 0.0
+
+    # CHECK: skip the initial equilibration steps
+    n_skip = 0
+    n_frames_adj = n_frames - n_skip
+
+    all_Rg = jnp.zeros(comm_size)
+
+    for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
+        chains_pos = jnp.take(pos, chain_indices, axis=0)
+        box = jnp.reshape(box, (1, 3))
+        chains_pos = jnp.mod(chains_pos, box)
+
+        total_mass = jnp.sum(chain_masses, axis=1)
+        cog = jnp.sum(chains_pos, axis=1) / n_atoms_per_chain
+        cog = jnp.expand_dims(cog, axis=1)
+
+        Rg2 = jnp.sum(chain_masses * jnp.linalg.norm(chains_pos - cog, axis=2) ** 2, axis=1) / total_mass
+        Rg = jnp.sqrt(Rg2)
+
+        mean_Rg += jnp.sum(Rg) / n_chains
+
+    mean_Rg /= n_frames_adj
+
+    all_Rg = all_Rg.at[comm.Get_rank()].set(mean_Rg)
+
+    # Calculate error
+    all_Rg, _ = mpi4jax.allreduce(all_Rg, op=MPI.SUM, comm=comm)
+    median_rg = jnp.median(all_Rg)
+    error = rg_weight * metric(median_rg, target_rg)
+
+    # Error from constraints
+    if constraint:
+        error += constraint(model.LJ_param, k_constraint, epsl_constraint)
+
+    # Prevent interaction parameter from reaching unphysical values
+    if boundary:
+        error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
+
+    return error, (
+        {"radius of gyration": median_rg},
+        trj,
+        key,
+        config,
+        types
+    )
+
+
+def filter_repls(all_rg, tol):
+    median = jnp.median(all_rg)
+
+    mask = (all_rg >= median*(1-tol)) & (all_rg <= median*(1+tol))
+
+    ind = jnp.where(mask, size=all_rg.shape[0], fill_value=-1)[0]
+    rg_filtered = jnp.take(all_rg, ind)
+    rg_filtered = jnp.where(ind == -1, 0, rg_filtered)
+    mean_filtered = jnp.sum(rg_filtered)/jnp.count_nonzero(rg_filtered)
+    
+    return mean_filtered
+
+
+def radius_of_gyration_filter_repls(
+    # fmt: off
+    model, system, key, start_temperature, comm,
+    n_chains, n_atoms_per_chain, chain_indices, chain_masses,   # arguments from unpacked reference dict
+    metric, target_rg, rg_weight=1.0, k_constraint=0.01,   # arguments from unpacked reference dict
+    boundary=None, boundary_S=2, boundary_C=500, constraint=None,
+):
+    epsl_table, epsl_constraint, types = get_LJ_param(model, system.config, jnp.array(system.types))
+
+    trj, key, config = simulator(
+        # fmt: off
+        model, system.positions, system.velocities, types, system.masses, system.charges,
+        epsl_table, key, system.topol, system.config, start_temperature
+    )
+
+    comm_size = comm.Get_size()
+    n_frames = len(trj["positions"])
+    mean_Rg = 0.0
+
+    # CHECK: skip the initial equilibration steps
+    n_skip = 0
+    n_frames_adj = n_frames - n_skip
+
+    all_Rg = jnp.zeros(comm_size)
+
+    for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
+        chains_pos = jnp.take(pos, chain_indices, axis=0)
+        box = jnp.reshape(box, (1, 3))
+        chains_pos = jnp.mod(chains_pos, box)
+
+        total_mass = jnp.sum(chain_masses, axis=1)
+        cog = jnp.sum(chains_pos, axis=1) / n_atoms_per_chain
+        cog = jnp.expand_dims(cog, axis=1)
+
+        Rg2 = jnp.sum(chain_masses * jnp.linalg.norm(chains_pos - cog, axis=2) ** 2, axis=1) / total_mass
+        Rg = jnp.sqrt(Rg2)
+
+        mean_Rg += jnp.sum(Rg) / n_chains
+
+    mean_Rg /= n_frames_adj
+
+    all_Rg = all_Rg.at[comm.Get_rank()].set(mean_Rg)
+
+    # Calculate error
+    all_Rg, _ = mpi4jax.allreduce(all_Rg, op=MPI.SUM, comm=comm)
+
+    all_Rg_filtered = filter_repls(all_Rg, 0.1)
+
+    error = rg_weight * metric(jnp.mean(all_Rg_filtered), target_rg)
+
+    # Error from constraints
+    if constraint:
+        error += constraint(model.LJ_param, k_constraint, epsl_constraint)
+
+    # Prevent interaction parameter from reaching unphysical values
+    if boundary:
+        error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
+
+    return error, (
+        {"radius of gyration": mean_Rg},
+        trj,
+        key,
+        config,
+        types
+    )
+
+
 def radius_of_gyration_and_end_to_end(
     # fmt: off
     model, system, key, start_temperature, comm,
