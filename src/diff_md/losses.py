@@ -521,7 +521,8 @@ def radius_of_gyration_filter_repls(
 
     all_Rg_filtered = filter_repls(all_Rg, 0.1)
 
-    error = rg_weight * metric(jnp.mean(all_Rg_filtered), target_rg)
+    all_rg_mean = jnp.mean(all_Rg_filtered)
+    error = rg_weight * metric(all_rg_mean, target_rg)
 
     # Error from constraints
     if constraint:
@@ -532,7 +533,7 @@ def radius_of_gyration_filter_repls(
         error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
 
     return error, (
-        {"radius of gyration": mean_Rg},
+        {"radius of gyration": all_rg_mean},
         trj,
         key,
         config,
