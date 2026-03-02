@@ -6,6 +6,8 @@ import jax.numpy as jnp
 import mpi4jax
 from jax import Array, jit
 from jax.scipy.stats import gaussian_kde
+from jax.scipy.special import kl_div
+
 from mpi4py import MPI
 
 from .config import Config, get_type_to_LJ
@@ -262,6 +264,8 @@ def density_and_apl(
         types,
     )
 
+def Kullback_Leibler(kde_rg, target_dist, axis):
+    return kl_div(kde_rg, target_dist)
 
 def radius_of_gyration_dist(
     # fmt: off
