@@ -116,6 +116,8 @@ def l2e(predictions, targets, axis=None):
     # L2 Error
     return jnp.linalg.norm(predictions - targets, axis=axis)
 
+def Kullback_Leibler(kde_rg, target_dist, axis):
+    return kl_div(kde_rg, target_dist+0.000001)
 
 @jit
 def harmonic_constraint(y, k, constraints):
@@ -264,9 +266,6 @@ def density_and_apl(
         types,
     )
 
-def Kullback_Leibler(kde_rg, target_dist, axis):
-    return kl_div(kde_rg, target_dist)
-
 def radius_of_gyration_dist(
     # fmt: off
     model, system, key, start_temperature, comm,
@@ -317,7 +316,7 @@ def radius_of_gyration_dist(
 
     # Calculate error due to probablity density function 
     error = (
-        jnp.sum(rg_weight * metric(kde_rg, target_dist, axis=1))
+        jnp.mean(rg_weight * metric(kde_rg, target_dist, axis=1))
     )
 
     # Error from constraints
