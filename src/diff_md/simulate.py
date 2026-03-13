@@ -60,8 +60,10 @@ def simulator(
     # All frames are kept in RAM and unwraping the whole trajectory takes long.
     if equilibration: 
         n_print = 100 
+        ns_nlist = config.ns_nlist 
     else:   
         n_print = config.n_print
+        ns_nlist = 1
 
     # Arrays to store dihedral angle information for fitting 2d distribution
     # if protein_flag:
@@ -95,7 +97,7 @@ def simulator(
 
     # Make neighbor list
     rv = config.rv 
-    ns_nlist = config.ns_nlist 
+    
     dens = config.n_particles / config.box_size.prod()
     max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
     max_neighbors += 50000 # Add a buffer for safety
