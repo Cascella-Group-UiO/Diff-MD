@@ -1,0 +1,13 @@
+2026-03-04 13:18:29,572 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-04 13:18:29,573 ERROR    [config.py:294] <get_config> Unable to parse config file './options.toml'.
+Traceback (most recent call last):
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/config.py", line 292, in get_config
+    toml_config = read_toml(file_path)
+                  ^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/config.py", line 264, in read_toml
+    toml_content = tomli.load(in_file)
+                   ^^^^^^^^^^^^^^^^^^^
+  File "src/tomli/_parser.py", line 146, in load
+  File "src/tomli/_parser.py", line 187, in loads
+  File "src/tomli/_parser.py", line 439, in key_value_rule
+tomli._parser.TOMLDecodeError: Cannot overwrite a value (at line 25, column 26)

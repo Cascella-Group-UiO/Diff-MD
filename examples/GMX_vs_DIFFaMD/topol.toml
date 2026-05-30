@@ -1,0 +1,11 @@
+[system]
+molecules = [
+    ["SOL", 4],
+    ["ZN", 1],
+    ["CL", 2],
+]
+include = [
+    "./SOL.toml",
+    "./ZN.toml",
+    "./CL.toml",
+]

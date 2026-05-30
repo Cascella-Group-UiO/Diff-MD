@@ -1,0 +1,65 @@
+# Preset for diffmd-analyze -q4 focused on coordination distances only.
+# Default: coordination-distance distribution only. Set `distance_timeseries = true`
+# below if you also want metal-ligand distances vs time.
+
+[figure]
+width = 7.0
+height = 4.8
+dpi = 350
+facecolor = "#fbf7f0"
+axes_facecolor = "#fffdf8"
+
+[font]
+family = "DejaVu Serif"
+size = 12
+
+[legend]
+loc = "best"
+frameon = false
+
+[grid]
+enabled = true
+linestyle = ":"
+alpha = 0.22
+linewidth = 0.8
+
+[q4.panels]
+timeseries = false
+distribution = false
+distance_timeseries = false
+distance_distribution = true
+
+[q4.layout]
+ncols = 2
+tight_pad = 0.50
+
+[q4.titles]
+distance_distribution = "Coordination Distance Distribution"
+distance_timeseries = "Metal-Ligand Distances vs Time"
+
+[q4.axes.distance_distribution]
+xlabel = "Distance (nm)"
+ylabel = "P(r)"
+xticks = [0.20, 0.22, 0.24, 0.26, 0.28]
+ytick_format = "%.2f"
+
+[q4.axes.distance_timeseries]
+xlabel = "Time (ns)"
+ylabel = "Distance (A)"
+ytick_format = "%.2f"
+
+[series.SG1]
+color = "#2f4858"
+linewidth = 2.0
+
+[series.SG2]
+color = "#bc6c25"
+linewidth = 2.0
+
+[series.SG3]
+color = "#6d597a"
+linewidth = 2.0
+
+[series.SG4]
+color = "#386641"
+linewidth = 2.0

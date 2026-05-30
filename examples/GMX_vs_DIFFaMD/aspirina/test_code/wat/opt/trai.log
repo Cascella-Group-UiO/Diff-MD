@@ -1,0 +1,164 @@
+2026-03-16 17:34:08,519 INFO     [mdrun.py:367] <main> ensemble = 'NVE': auto-enabling double precision (jax_enable_x64) for energy conservation.  Use --double-precision to silence this.
+2026-03-16 17:34:08,634 INFO     [input_parser.py:230] <constructor> Coordinate file './wat.h5' parsed successfully.
+2026-03-16 17:34:08,703 WARNING  [config.py:513] <_parse_type_lj> Ignoring LJ_type_param entries with unknown particle names not present in the current coordinates: Br, C, CA, CB, CC, CD, CI, CE, ...
+2026-03-16 17:34:08,943 INFO     [config.py:678] <get_config> LJ parameters | combining_rule=lorentz-berthelot | lj_input_source=mixing | n_types=2
+    type_i    type_j  id_i  id_j    sigma_ij  epsilon_ij
+        OW        OW     0     0    0.317796    0.652144
+        OW        HW     0     1    0.158898    0.000000
+        HW        HW     1     1    0.000000    0.000000
+2026-03-16 17:34:10,141 INFO     [config.py:1063] <get_config> Config file './options.jaxmd.toml' parse successfully.
+2026-03-16 17:34:10,155 INFO     [input_parser.py:244] <constructor> Amber-like atomistic mode enabled (ensemble=NVE, combining_rule=lorentz-berthelot, coulomb14_scale=0.8333333333, lj14_scale=0.5, constrain_xh_bonds=False).
+2026-03-16 17:34:10,156 ERROR    [topology.py:52] <get_topol> Unable to parse topology './topol.toml'.
+Traceback (most recent call last):
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/topology.py", line 45, in get_topol
+    itps = read_toml(path)
+           ^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/config.py", line 266, in read_toml
+    with open(file_path, "rb") as in_file:
+         ^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '././SOL.toml'
+2026-03-16 17:34:24,458 INFO     [mdrun.py:367] <main> ensemble = 'NVE': auto-enabling double precision (jax_enable_x64) for energy conservation.  Use --double-precision to silence this.
+2026-03-16 17:34:24,559 INFO     [input_parser.py:230] <constructor> Coordinate file './wat.h5' parsed successfully.
+2026-03-16 17:34:24,618 WARNING  [config.py:513] <_parse_type_lj> Ignoring LJ_type_param entries with unknown particle names not present in the current coordinates: Br, C, CA, CB, CC, CD, CI, CE, ...
+2026-03-16 17:34:24,839 INFO     [config.py:678] <get_config> LJ parameters | combining_rule=lorentz-berthelot | lj_input_source=mixing | n_types=2
+    type_i    type_j  id_i  id_j    sigma_ij  epsilon_ij
+        OW        OW     0     0    0.317796    0.652144
+        OW        HW     0     1    0.158898    0.000000
+        HW        HW     1     1    0.000000    0.000000
+2026-03-16 17:34:25,906 INFO     [config.py:1063] <get_config> Config file './options.jaxmd.toml' parse successfully.
+2026-03-16 17:34:25,920 INFO     [input_parser.py:244] <constructor> Amber-like atomistic mode enabled (ensemble=NVE, combining_rule=lorentz-berthelot, coulomb14_scale=0.8333333333, lj14_scale=0.5, constrain_xh_bonds=False).
+2026-03-16 17:34:26,023 INFO     [topology.py:63] <get_topol> Topology file './topol.toml' parsed successfully.
+2026-03-16 17:34:26,024 INFO     [mdrun.py:379] <main> 
+
+	Simulation parameters: 
+	--------------------------------------------------
+	box_size: [2.4859 2.4859 2.4859]
+	volume: 15.362113271778998
+	volume_per_cell: 0.001111263980886791
+	n_steps: 200000
+	n_particles: 1536
+	n_types: 2
+	dielectric_const: 1.0
+	particle_per_type: {np.int32(0): 512, np.int32(1): 1024}
+	range_types: [0 1]
+	unique_types: (np.int32(0), np.int32(1))
+	inner_ts: 0.0005
+	outer_ts: 0.0005
+	n_mesh_cells: 13824
+	fft_shape: (24, 24, 13)
+	self_energy: 150359.421875
+	mesh_size: [24 24 24]
+	rho0: 8.86
+	kappa: 0.05
+	sigma: 0.2038
+	rv: 1.1
+	rc: 0.9
+	rlj: 0.9
+	ns_nlist: 20
+	nrexcl: 3
+	epsilon_rf: 80
+	skin: 0.2
+	nlist_method: jaxmd
+	ff_family: amber_like
+	combining_rule: lorentz-berthelot
+	lj_input_source: mixing
+	lj_force_shift: False
+	coulomb14_scale: 0.8333333333
+	lj14_scale: 0.5
+	constrain_xh_bonds: False
+	unwrap_output: True
+	ensemble: NVE
+	thermostat: no
+	respa_inner: 1
+	n_print: 20
+	n_flush: 1
+	R: 0.00831446261815324
+	mass: [[16.   ]
+ [ 1.008]
+ [ 1.008]
+ ...
+ [16.   ]
+ [ 1.008]
+ [ 1.008]]
+	cancel_com_momentum: True
+	coulombtype: 1
+	elec_conversion: 138.935458
+	ewald_rtol: 1e-05
+	tau_t: 0.5
+	start_temperature: 0.0
+	target_temperature: 300.0
+	a: 9.21
+	pressure: False
+	barostat: 0
+	barostat_type: None
+	tau_p: None
+	n_b: 1
+	beta: 3.6e-05
+	target_pressure: None
+	p_conv: 16.605390666
+
+2026-03-16 17:34:32,264 INFO     [mdrun.py:488] <main> Using jax-md neighbor list (OrderedSparse, r_cut=0.900, skin=0.200, effective_rv=1.100, capacity=448996)
+2026-03-16 17:34:35,764 INFO     [file_io.py:722] <store_static> Whole-molecule unwrapping enabled for output (512 small + 0 large molecules, 1024 bonds).
+2026-03-16 17:34:35,876 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+            0            0            0       -29651            0       -29651       6403.1       -36102       38.435       9.2725            0            0            0
+2026-03-16 17:34:38,419 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+           20         0.01       28.175       -29663       539.74       -30203       6418.6       -37265       38.376       605.67   1.8124e-09   1.0193e-09  -7.6865e-09
+2026-03-16 17:34:38,419 INFO     [mdrun.py:993] <main> Step       20/200000   | Elapsed 0-00:00:02 |    0.357 ns/day |   67.258 h/ns |    8.260 step/s
+2026-03-16 17:34:38,419 INFO     [mdrun.py:994] <main> Thermo | T=   28.1755 K | P=    0.0000 bar | Ekin=  539.744441 | Eb=   38.376125 | Ea=  605.673966 | Ed=    0.000000 | ELJ= 6418.629563 | Eelec=-37265.303135
+2026-03-16 17:34:39,634 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+           40         0.02       59.119       -29681       1132.5       -30814       6477.5       -38302       281.39       729.27   1.3443e-09   3.2491e-10  -8.5265e-09
+2026-03-16 17:34:39,634 INFO     [mdrun.py:993] <main> Step       40/200000   | Elapsed 0-00:00:03 |    0.471 ns/day |   50.911 h/ns |   10.912 step/s
+2026-03-16 17:34:39,634 INFO     [mdrun.py:994] <main> Thermo | T=   59.1186 K | P=    0.0000 bar | Ekin= 1132.505894 | Eb=  281.385126 | Ea=  729.269867 | Ed=    0.000000 | ELJ= 6477.507550 | Eelec=-38301.712511
+2026-03-16 17:34:40,702 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+           60         0.03       66.846       -29688       1280.5       -30969       6580.5       -38821         1257       14.678   2.4204e-09   2.5288e-11  -1.3549e-08
+2026-03-16 17:34:40,703 INFO     [mdrun.py:993] <main> Step       60/200000   | Elapsed 0-00:00:04 |    0.546 ns/day |   43.951 h/ns |   12.640 step/s
+2026-03-16 17:34:40,703 INFO     [mdrun.py:994] <main> Thermo | T=   66.8464 K | P=    0.0000 bar | Ekin= 1280.544973 | Eb= 1256.999955 | Ea=   14.678149 | Ed=    0.000000 | ELJ= 6580.540735 | Eelec=-38820.852911
+2026-03-16 17:34:41,885 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+           80         0.04       65.124       -29683       1247.6       -30930       6696.4       -41016         2791        598.1   2.6621e-09   4.3607e-10  -1.0886e-08
+2026-03-16 17:34:41,886 INFO     [mdrun.py:993] <main> Step       80/200000   | Elapsed 0-00:00:06 |    0.582 ns/day |   41.212 h/ns |   13.480 step/s
+2026-03-16 17:34:41,886 INFO     [mdrun.py:994] <main> Thermo | T=   65.1242 K | P=    0.0000 bar | Ekin= 1247.552871 | Eb= 2790.971752 | Ea=  598.104558 | Ed=    0.000000 | ELJ= 6696.376670 | Eelec=-41015.561312
+2026-03-16 17:34:42,943 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+          100         0.05        29.24       -29664       560.13       -30224       6809.1       -42380         4415       931.24   2.7468e-09  -1.0547e-09  -1.1771e-08
+2026-03-16 17:34:42,943 INFO     [mdrun.py:993] <main> Step      100/200000   | Elapsed 0-00:00:07 |    0.617 ns/day |   38.870 h/ns |   14.293 step/s
+2026-03-16 17:34:42,944 INFO     [mdrun.py:994] <main> Thermo | T=   29.2396 K | P=    0.0000 bar | Ekin=  560.128943 | Eb= 4414.965516 | Ea=  931.241617 | Ed=    0.000000 | ELJ= 6809.139984 | Eelec=-42379.736937
+2026-03-16 17:34:43,987 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+          120         0.06       5.7326       -29653       109.82       -29763       6909.9       -42030       5313.8       43.449   1.7201e-09  -3.2662e-09   -1.458e-08
+2026-03-16 17:34:43,987 INFO     [mdrun.py:993] <main> Step      120/200000   | Elapsed 0-00:00:08 |    0.645 ns/day |   37.238 h/ns |   14.919 step/s
+2026-03-16 17:34:43,987 INFO     [mdrun.py:994] <main> Thermo | T=    5.7326 K | P=    0.0000 bar | Ekin=  109.816842 | Eb= 5313.769524 | Ea=   43.449020 | Ed=    0.000000 | ELJ= 6909.892499 | Eelec=-42029.828273
+2026-03-16 17:34:45,057 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+          140         0.07       29.133       -29662       558.09       -30220       6976.8       -42471       4748.6       525.62    3.066e-09  -2.3364e-10  -1.4576e-08
+2026-03-16 17:34:45,057 INFO     [mdrun.py:993] <main> Step      140/200000   | Elapsed 0-00:00:09 |    0.664 ns/day |   36.171 h/ns |   15.359 step/s
+2026-03-16 17:34:45,057 INFO     [mdrun.py:994] <main> Thermo | T=   29.1331 K | P=    0.0000 bar | Ekin=  558.088122 | Eb= 4748.626961 | Ea=  525.618872 | Ed=    0.000000 | ELJ= 6976.784454 | Eelec=-42471.118019
+2026-03-16 17:34:46,220 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+          160         0.08        49.95       -29676       956.87       -30633       7015.6       -42009       3316.1       1043.9   3.1256e-09   -5.033e-10  -1.2683e-08
+2026-03-16 17:34:46,220 INFO     [mdrun.py:993] <main> Step      160/200000   | Elapsed 0-00:00:10 |    0.672 ns/day |   35.692 h/ns |   15.565 step/s
+2026-03-16 17:34:46,220 INFO     [mdrun.py:994] <main> Thermo | T=   49.9499 K | P=    0.0000 bar | Ekin=  956.867081 | Eb= 3316.095226 | Ea= 1043.913791 | Ed=    0.000000 | ELJ= 7015.593932 | Eelec=-42008.750723
+2026-03-16 17:34:47,271 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+          180         0.09       68.402       -29687       1310.4       -30998       7046.4       -39818       1724.1       49.251   1.9765e-09  -1.9224e-09  -1.3036e-08
+2026-03-16 17:34:47,272 INFO     [mdrun.py:993] <main> Step      180/200000   | Elapsed 0-00:00:11 |    0.686 ns/day |   34.976 h/ns |   15.884 step/s
+2026-03-16 17:34:47,272 INFO     [mdrun.py:994] <main> Thermo | T=   68.4025 K | P=    0.0000 bar | Ekin= 1310.353331 | Eb= 1724.071413 | Ea=   49.250842 | Ed=    0.000000 | ELJ= 7046.366479 | Eelec=-39817.502476
+2026-03-16 17:34:48,333 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+          200          0.1       70.235       -29685       1345.5       -31031         7064       -39015       543.31       376.96   2.3494e-09  -1.4984e-09  -1.1714e-08
+2026-03-16 17:34:48,334 INFO     [mdrun.py:993] <main> Step      200/200000   | Elapsed 0-00:00:12 |    0.697 ns/day |   34.430 h/ns |   16.136 step/s
+2026-03-16 17:34:48,334 INFO     [mdrun.py:994] <main> Thermo | T=   70.2352 K | P=    0.0000 bar | Ekin= 1345.462110 | Eb=  543.311825 | Ea=  376.963289 | Ed=    0.000000 | ELJ= 7064.043230 | Eelec=-39014.884249
+2026-03-16 17:34:49,382 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+          220         0.11       32.963       -29667       631.46       -30299       7073.8       -38502       97.377       1032.2   1.2329e-09  -9.8639e-10  -9.2447e-09
+2026-03-16 17:34:49,382 INFO     [mdrun.py:993] <main> Step      220/200000   | Elapsed 0-00:00:13 |    0.707 ns/day |   33.951 h/ns |   16.363 step/s
+2026-03-16 17:34:49,383 INFO     [mdrun.py:994] <main> Thermo | T=   32.9630 K | P=    0.0000 bar | Ekin=  631.455957 | Eb=   97.377016 | Ea= 1032.174716 | Ed=    0.000000 | ELJ= 7073.815446 | Eelec=-38502.054858
+2026-03-16 17:34:50,509 INFO     [file_io.py:909] <store_data> 
+         step         time         temp        tot E        kin E        pot E         LJ E       Elec E       bond E        ang E           Px           Py           Pz
+          240         0.12       11.302       -29655        216.5       -29871       7092.3       -37064       42.445       58.331  -3.9752e-10  -2.5758e-09  -1.0318e-08
+2026-03-16 17:34:50,509 INFO     [mdrun.py:993] <main> Step      240/200000   | Elapsed 0-00:00:14 |    0.712 ns/day |   33.730 h/ns |   16.471 step/s
+2026-03-16 17:34:50,509 INFO     [mdrun.py:994] <main> Thermo | T=   11.3019 K | P=    0.0000 bar | Ekin=  216.504201 | Eb=   42.445143 | Ea=   58.330719 | Ed=    0.000000 | ELJ= 7092.284672 | Eelec=-37064.398722

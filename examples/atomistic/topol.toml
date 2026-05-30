@@ -1,0 +1,7 @@
+[system]
+molecules = [
+    ["TEST", 1],
+]
+include = [
+    "./TEST.toml",
+]

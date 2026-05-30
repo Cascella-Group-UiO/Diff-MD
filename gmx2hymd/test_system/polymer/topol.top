@@ -1,0 +1,15 @@
+#include "martini_3_mod-RW.itp"
+#include "martini_v3.0.0_solvents_v1.itp"
+#include "martini_v3.0.0_ions_v1.itp"
+#include "pmetac.itp"
+
+[ system ]
+; name
+PCP in water
+
+[ molecules ]
+; name  number
+PCP       1
+W      2214
+NA        8
+CL       23

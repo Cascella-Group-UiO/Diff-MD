@@ -1,0 +1,4 @@
+# Diff-MD energy log
+# step | time_fs | temp_K | E_total_kJmol | E_potential_kJmol | E_kin_kJmol | E_LJ_kJmol | E_elec_kJmol | E_bond_kJmol | E_angle_kJmol | E_torsional_kJmol | E_improper_torsional_kJmol
+         0          0.000    300.0000     -240.464838     -319.036510       78.571672       29.608802     -438.643954       14.193857       40.911769       33.462316        1.430700
+        10          5.000    260.4423     -239.383729     -307.595006       68.211278       33.718264     -448.778896       21.824223       50.748388       33.462316        1.430700

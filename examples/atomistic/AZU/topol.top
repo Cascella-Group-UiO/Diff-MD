@@ -1,0 +1,51 @@
+;
+;	File 'topol.top' was generated
+;	By user: morland1 (126028)
+;	On host: login07.leonardo.local
+;	At date: Tue Feb 24 10:11:01 2026
+;
+;	This is a standalone topology file
+;
+;	Created by:
+;	                    :-) GROMACS - gmx pdb2gmx, 2022.3 (-:
+;	
+;	Executable:   /leonardo/prod/spack/03/install/0.19/linux-rhel8-icelake/gcc-11.3.0/gromacs-2022.3-ua24bar2hnqufltrictym6qdve7thv57/bin/gmx
+;	Data prefix:  /leonardo/prod/spack/03/install/0.19/linux-rhel8-icelake/gcc-11.3.0/gromacs-2022.3-ua24bar2hnqufltrictym6qdve7thv57
+;	Working dir:  /leonardo_scratch/large/userexternal/morland1/niccolo/RAV/4AZU/pol/QM-MM_el
+;	Command line:
+;	  gmx pdb2gmx -f clust_wholae_IND_358.pdb -ignh
+;	Force field was read from current directory or a relative path - path added.
+;
+
+; Include forcefield parameters
+#include "./amber14sb_parmbsc1.ff/ffbonded.itp"
+
+; Include chain topologies
+#include "topol_Protein_chain_X.itp"
+#include "topol_Ion_chain_B.itp"
+#include "topol_Ion_chain_X2.itp"
+
+; Include water topology
+#include "./amber14sb_parmbsc1.ff/spce.itp"
+
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+;  i funct       fcx        fcy        fcz
+   1    1       1000       1000       1000
+#endif
+
+; Include topology for ions
+#include "./amber14sb_parmbsc1.ff/ions.itp"
+
+[ system ]
+; Name
+Protein
+
+[ molecules ]
+; Compound        #mols
+Protein_chain_X     1
+Ion_chain_B         1
+Ion_chain_X2        1
+SOL               6830
+NA                  1

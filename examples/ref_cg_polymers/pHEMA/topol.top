@@ -1,0 +1,12 @@
+#include "../martini3.ff/martini_3_mod-RW.itp"
+#include "phema.itp"
+#include "../martini3.ff/martini_v3.0.0_solvents_v1.itp"
+
+[ system ]
+; name
+INSANE! Membrane UpperLeaflet>POPC=1 LowerLeaflet>POPC=1 in water
+
+[ molecules ]
+; name  number
+HEMA                1
+ETO 		 2000

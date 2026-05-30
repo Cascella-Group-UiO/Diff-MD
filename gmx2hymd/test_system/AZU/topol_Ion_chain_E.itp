@@ -1,0 +1,33 @@
+;
+;	File 'topol_Ion_chain_E.itp' was generated
+;	By user: morland1 (126028)
+;	On host: login05.leonardo.local
+;	At date: Tue Nov 25 23:02:54 2025
+;
+;	This is a include topology file
+;
+;	Created by:
+;	           :-) GROMACS - gmx pdb2gmx, 2023.3 (double precision) (-:
+;	
+;	Executable:   /leonardo/home/userexternal/morland1/cp2k/cp2k/gromacs/gromacs-2023.3/build/bin/gmx_mpi_d
+;	Data prefix:  /leonardo/home/userexternal/morland1/cp2k/cp2k/gromacs/gromacs-2023.3 (source tree)
+;	Working dir:  /leonardo_scratch/large/userexternal/morland1/niccolo/RAV/4AZU/pol/QM-MM_el
+;	Command line:
+;	  gmx_mpi_d pdb2gmx -f 4AZU_chainA_cut.pdb -ignh -o corr.gro
+;	Force field was read from current directory or a relative path - path added.
+;
+
+[ moleculetype ]
+; Name            nrexcl
+Ion_chain_E         3
+
+[ atoms ]
+;   nr       type  resnr residue  atom   cgnr     charge       mass  typeB    chargeB      massB
+; residue 129 CU  rtp CU   q +2.0
+     1         CU    129     CU     CU      1          2      63.55   ; qtot 2
+
+; Include Position restraint file
+#ifdef POSRES
+#include "posre_Ion_chain_E.itp"
+#endif
+

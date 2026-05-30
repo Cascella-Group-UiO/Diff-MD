@@ -1,0 +1,62 @@
+# Preset for diffmd-analyze -q4 focused on tetrahedral order only.
+# Default: Q4 distribution only. Set `timeseries = true` below to also show Q4 vs time.
+
+[figure]
+width = 6.8
+height = 4.6
+dpi = 350
+facecolor = "#fbf7f0"
+axes_facecolor = "#fffdf8"
+
+[font]
+family = "DejaVu Serif"
+size = 12
+
+[legend]
+loc = "best"
+frameon = false
+
+[grid]
+enabled = true
+linestyle = ":"
+alpha = 0.22
+linewidth = 0.8
+
+[q4.panels]
+timeseries = false
+distribution = true
+distance_timeseries = false
+distance_distribution = false
+
+[q4.layout]
+ncols = 2
+tight_pad = 0.50
+
+[q4.titles]
+distribution = "Tetrahedral Order Distribution"
+timeseries = "Tetrahedral Order vs Time"
+
+[q4.axes.distribution]
+xlabel = "q"
+ylabel = "P(q)"
+xlim = [0.0, 1.0]
+xticks = [0.0, 0.25, 0.50, 0.75, 1.0]
+ytick_format = "%.2f"
+
+[q4.axes.timeseries]
+xlabel = "Time (ns)"
+ylabel = "Q4"
+ylim = [0.0, 1.0]
+ytick_format = "%.2f"
+
+[labels]
+site0 = "Site 0"
+site1 = "Site 1"
+
+[series.site0]
+color = "#2f4858"
+linewidth = 2.3
+
+[series.site1]
+color = "#bc6c25"
+linewidth = 2.1

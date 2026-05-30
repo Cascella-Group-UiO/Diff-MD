@@ -1,0 +1,94 @@
+# Combined preset for diffmd-analyze -q4 with both Q4 and coordination panels.
+# Default: the two distribution panels only. To include the time-series panels too,
+# set `timeseries = true` and `distance_timeseries = true` below.
+
+[figure]
+width = 8.8
+height = 5.2
+dpi = 350
+facecolor = "#fbf7f0"
+axes_facecolor = "#fffdf8"
+
+[font]
+family = "DejaVu Serif"
+size = 12
+
+[legend]
+loc = "best"
+frameon = false
+
+[grid]
+enabled = true
+linestyle = ":"
+alpha = 0.22
+linewidth = 0.8
+
+[q4.panels]
+timeseries = false
+distribution = true
+distance_timeseries = false
+distance_distribution = true
+
+[q4.layout]
+ncols = 2
+tight_pad = 0.50
+wspace = 0.26
+hspace = 0.28
+
+[q4.titles]
+distribution = "Tetrahedral Order Distribution"
+distance_distribution = "Coordination Distance Distribution"
+timeseries = "Tetrahedral Order vs Time"
+distance_timeseries = "Metal-Ligand Distances vs Time"
+
+[q4.axes.distribution]
+xlabel = "q"
+ylabel = "P(q)"
+xlim = [0.0, 1.0]
+xticks = [0.0, 0.25, 0.50, 0.75, 1.0]
+ytick_format = "%.2f"
+
+[q4.axes.distance_distribution]
+xlabel = "Distance (nm)"
+ylabel = "P(r)"
+xticks = [0.20, 0.22, 0.24, 0.26, 0.28]
+ytick_format = "%.2f"
+
+[q4.axes.timeseries]
+xlabel = "Time (ns)"
+ylabel = "Q4"
+ylim = [0.0, 1.0]
+ytick_format = "%.2f"
+
+[q4.axes.distance_timeseries]
+xlabel = "Time (ns)"
+ylabel = "Distance (A)"
+ytick_format = "%.2f"
+
+[labels]
+site0 = "Site 0"
+site1 = "Site 1"
+
+[series.site0]
+color = "#2f4858"
+linewidth = 2.3
+
+[series.site1]
+color = "#bc6c25"
+linewidth = 2.1
+
+[series.SG1]
+color = "#2f4858"
+linewidth = 2.0
+
+[series.SG2]
+color = "#bc6c25"
+linewidth = 2.0
+
+[series.SG3]
+color = "#6d597a"
+linewidth = 2.0
+
+[series.SG4]
+color = "#386641"
+linewidth = 2.0

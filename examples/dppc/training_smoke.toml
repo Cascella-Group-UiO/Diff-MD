@@ -1,0 +1,50 @@
+[nn]
+systems = ["dppc"]
+n_epochs = 2
+equilibration = 0
+teacher_forcing = false
+chain = false
+shuffle = false
+batch_size = 1
+
+[nn.optimizer]
+name = 'sgd'
+learning_rate = 0.01
+
+[nn.loss]
+name = 'density_and_apl'
+metric = "mse"
+width_ratio = 0.5
+density_weight = 1
+apl_weight = 1
+
+[nn.system_args.dppc]
+com_type = "C1"
+n_lipids = 64
+target_apl = 0.633
+target_density = "reference_aa.xvg"
+
+[nn.model]
+LJ_param = [
+[ 'Q1', 'Q5', 4.70e-01, 3.79 , 'on_eps' ],
+[ 'SN4a', 'SN4a', 4.10e-01, 2.60, 'on_eps'],
+[ 'N4a', 'N4a', 4.70e-01, 3.39, 'on_eps' ],
+[ 'C1', 'C1', 4.70e-01, 2.39, 'on_eps' ],
+[ 'W', 'W', 4.70e-01, 4.65],
+[ 'C1', 'N4a', 4.70e-01, 2.79 ],
+[ 'C1', 'Q1', 4.85e-01, 2.578 ],
+[ 'C1', 'Q5', 6.20e-01, 2.046 ],
+[ 'C1', 'SN4a', 4.30e-01, 2.16 ],
+[ 'C1', 'W', 4.70e-01, 2.06 ],
+[ 'N4a', 'Q1', 4.70e-01, 2.726, 'on_eps' ],
+[ 'N4a', 'Q5', 4.70e-01, 1.887, 'on_eps' ],
+[ 'N4a', 'SN4a', 4.30e-01, 2.93, 'on_eps' ],
+[ 'N4a', 'W', 4.65e-01, 3.50 ],
+[ 'Q1', 'Q1', 4.70e-01, 3.98 ],
+[ 'Q1', 'SN4a', 4.30e-01, 4.236 ],
+[ 'Q1', 'W', 4.65e-01, 1.22 ],
+[ 'Q5', 'Q5', 4.70e-01, 6.45 ],
+[ 'Q5', 'SN4a', 4.30e-01, 4.386 ],
+[ 'Q5', 'W', 4.65e-01, 6.34 ],
+[ 'SN4a', 'W', 4.25e-01, 3.00 ],
+]

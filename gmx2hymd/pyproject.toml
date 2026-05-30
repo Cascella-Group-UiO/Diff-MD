@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+editable_mode = true
+
+[project]
+name = "gmx2diffmd"
+version = "1.0.0"
+authors = [
+  { name="Matteo Orlandi", email="matteo.orlandi1@unifi.it" },
+]
+description = "Topology and utility toolkit for Diff-MD inputs and trajectories"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "h5py", 
+  "matplotlib",
+  "MDAnalysis",
+  "numpy",
+  "parse",
+  "scipy",
+  "tomlkit"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+gmx2HyMD = ["*.toml"]
+
+[project.scripts]
+gmx2diffmd = "gmx2HyMD.main:main"
+diffmd-h5toxyz = "gmx2HyMD.traj_cli:main"
+diffmd-energy = "gmx2HyMD.energy_cli:main"
+diffmd-analyze = "gmx2HyMD.analyze_cli:main"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+
+#Firenze 

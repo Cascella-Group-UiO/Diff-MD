@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diff_MD"
+version = "0.0.2"
+authors = [{ name = "Matteo Orlandi", email = "matteo.orlandi1@unifi.it" }]
+description = "Differentiable atomistic MD"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+diff_md = "diff_md.main:main"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+
+[tool.setuptools.package-data] 
+"diff_md" = ["quotes.txt"]

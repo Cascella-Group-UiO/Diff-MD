@@ -1,0 +1,78 @@
+# Paper-style preset for diffmd-analyze --density-apl.
+# This controls the saved density comparison figure. APL remains in *_apl_timeseries.dat.
+
+[figure]
+width = 7.2
+height = 4.8
+dpi = 350
+facecolor = "#fbf7f0"
+axes_facecolor = "#fffdf8"
+
+[font]
+family = "DejaVu Serif"
+size = 12
+
+[legend]
+loc = "upper right"
+frameon = false
+
+[grid]
+enabled = true
+linestyle = ":"
+alpha = 0.2
+linewidth = 0.8
+
+[layout]
+tight_pad = 0.55
+tight_w_pad = 0.30
+tight_h_pad = 0.30
+
+[labels]
+aa = "Atomistic target"
+target = "Atomistic target"
+replay_fixed = "Diff-MD replay"
+saved = "Reference"
+
+[series.aa]
+color = "#2f4858"
+linewidth = 2.5
+linestyle = "-"
+
+[series.target]
+color = "#2f4858"
+linewidth = 2.5
+linestyle = "-"
+
+[series.replay_fixed]
+color = "#bc6c25"
+linewidth = 2.2
+linestyle = "--"
+
+[series.saved]
+color = "#6d597a"
+linewidth = 2.1
+linestyle = "-."
+
+[distribution]
+show_integral_panel = false
+title = "Bilayer Number Density"
+
+[distribution.axes.pdf]
+xlabel = "Relative position from center (nm)"
+ylabel = "Number density"
+xlim = [-2.8, 2.8]
+xticks = [-2.0, -1.0, 0.0, 1.0, 2.0]
+ytick_format = "%.2f"
+
+[distribution.layout]
+top = 0.92
+
+[[distribution.annotations]]
+axis = "pdf"
+text = "Bilayer center"
+xy = [0.0, 0.0]
+xycoords = "data"
+xytext = [0.65, 0.15]
+textcoords = "axes fraction"
+arrowprops = { arrowstyle = "->", color = "#2f4858" }
+fontsize = 11

@@ -1,0 +1,28 @@
+# Core JAX Stack (Pinned for stability on H200)
+jax==0.9.1
+jaxlib==0.9.1
+flax
+h5py
+#forse mpi4jax va levato e messo in .sh file pip install mpi4jax==0.9.0 --no-build-isolation e pip install .
+#mpi4jax
+mpi4py
+numpy
+optax
+orbax-checkpoint
+tomli
+tomlkit
+vesin
+jax-md
+nanobind
+#openmpi
+#compilers
+
+# Step 1: Install the build foundation manually in un .sh file
+# This ensures these are "live" in the venv before anything else tries to compile
+#pip install nanobind mpi4py
+
+# Step 2: Install mpi4jax with the hardware-linking flag
+#pip install mpi4jax==0.9.0 --no-build-isolation
+
+# Step 3: Install everything else from your project
+#pip install .

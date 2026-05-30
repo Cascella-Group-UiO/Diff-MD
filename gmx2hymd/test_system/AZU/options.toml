@@ -1,0 +1,6 @@
+thermostat_coupling_groups = [
+    ['N3', 'H', 'CX', 'HP', 'CT', 'HC', 'C', 'O', 'N', 'H1', '2C', 'CO', 'O2',
+ 'S', 'OH', 'HO', '3C', 'CA', 'HA', 'C8', 'CC', 'NB', 'CR', 'H5', 'NA',
+ 'CW', 'H4', 'C*', 'CN', 'CB', 'N2', 'CV', 'SH', 'CU'],
+    ['Na', 'OW_sp', 'HW_sp'],
+]

@@ -1,0 +1,1 @@
+{"systype":"solution","dimensions":["60","60","60",90,90,90],"input":["gromacs"],"forcefield":{"type":"amber","files":["leaprc.protein.ff14SB","leaprc.water.tip3p"],"custom":[],"wtype":"TIP3P","itype":"12-6"},"hmr":false}

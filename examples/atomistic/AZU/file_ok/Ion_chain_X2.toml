@@ -1,0 +1,6 @@
+[Ion_chain_X2]
+atomnum = 1
+atoms = [
+    [1, "Na", 6962, "NA", "NA", 1, 1.0, 22.99],
+]
+

@@ -1,0 +1,13 @@
+[system]
+molecules = [
+    ["PROA_P", 1],
+    ["W", 11373],
+    ["NA", 139],
+    ["CL", 122],
+]
+include = [
+    "./PROA_P.toml",
+    "./W.toml",
+    "./NA.toml",
+    "./CL.toml",
+]

@@ -1,0 +1,55 @@
+[nn]
+systems = ["examples/atomistic_protein"]
+n_epochs = 50
+equilibration = 500
+teacher_forcing = false
+chain = false
+shuffle = false
+
+[nn.optimizer]
+name = "adam"
+learning_rate = 0.01
+
+[nn.loss]
+name = "radius_of_gyration"
+metric = "mse"
+target_rg = 1.5
+rg_weight = 1.0
+constraint = "harmonic"
+k_constraint = 0.01
+boundary = 50
+
+[nn.system_args."examples/atomistic_protein"]
+n_chains = 1
+resname = "Protein_chain_X"
+
+[nn.model]
+# Type-based differentiable LJ training.
+# Row format:
+#   [type_name, sigma, epsilon, ...flags]
+# Flags supported:
+#   "on_eps"    -> train epsilon for this type
+#   "on_sigma"  -> train sigma for this type
+#   "cs"        -> constrain epsilon around its initial value
+#   "cs_sigma"  -> constrain sigma around its initial value
+#
+# Behavior:
+# - If no train flags are present in any row: all epsilons are trainable.
+# - If at least one train flag is present: only explicitly flagged params are trainable.
+# - Global switch below enables sigma training for all rows only when no explicit flags are used.
+train_sigma = false
+
+LJ_type_param = [
+    ["C1",   4.70e-01, 3.39e+00, "on_eps", "cs"],
+    ["N4a",  4.70e-01, 3.39e+00, "on_eps"],
+    ["Q1",   4.70e-01, 3.98e+00],
+    ["Q5",   4.70e-01, 6.45e+00],
+    ["SN4a", 4.10e-01, 2.60e+00, "on_sigma"],
+    ["W",    4.70e-01, 4.65e+00],
+]
+
+# Example presets:
+# 1) Train only epsilon (all types): keep rows without flags and train_sigma=false.
+# 2) Train both sigma+epsilon (all types): keep rows without flags and set train_sigma=true.
+# 3) Train only sigma of selected types: add "on_sigma" only to selected rows.
+# 4) Train both for selected types: add both "on_eps" and "on_sigma" on selected rows.

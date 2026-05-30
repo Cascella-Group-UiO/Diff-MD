@@ -1,0 +1,31 @@
+2026-03-03 11:09:14,689 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:09:14,807 ERROR    [config.py:531] <get_config> Valid barostats are: 'no', 'berendsen', 'scr'. Got 'isotropic'.
+2026-03-03 11:12:51,937 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:12:51,938 ERROR    [config.py:294] <get_config> Unable to parse config file './options.toml'.
+Traceback (most recent call last):
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/config.py", line 292, in get_config
+    toml_config = read_toml(file_path)
+                  ^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/config.py", line 264, in read_toml
+    toml_content = tomli.load(in_file)
+                   ^^^^^^^^^^^^^^^^^^^
+  File "src/tomli/_parser.py", line 146, in load
+  File "src/tomli/_parser.py", line 187, in loads
+  File "src/tomli/_parser.py", line 439, in key_value_rule
+tomli._parser.TOMLDecodeError: Cannot overwrite a value (at line 12, column 31)
+2026-03-03 11:14:42,741 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:14:43,196 ERROR    [config.py:562] <get_config> The sum of all charges should be equal to zero to avoid artifacts. Got 10.000001907348633.
+2026-03-03 11:19:13,521 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:19:13,993 ERROR    [config.py:562] <get_config> The sum of all charges should be equal to zero to avoid artifacts. Got 10.000001907348633.
+2026-03-03 11:21:34,989 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:21:35,110 ERROR    [config.py:531] <get_config> Valid barostats are: 'no', 'berendsen', 'scr'. Got 'isotropic'.
+2026-03-03 11:24:31,577 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:24:32,044 ERROR    [config.py:562] <get_config> The sum of all charges should be equal to zero to avoid artifacts. Got -29.999996185302734.
+2026-03-03 11:32:09,901 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:32:10,536 ERROR    [config.py:562] <get_config> The sum of all charges should be equal to zero to avoid artifacts. Got -29.999996185302734.
+2026-03-03 11:44:14,963 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:44:15,425 ERROR    [config.py:562] <get_config> The sum of all charges should be equal to zero to avoid artifacts. Got 3.814697265625e-06.
+2026-03-03 11:47:30,134 INFO     [input_parser.py:67] <constructor> Coordinate file './output.h5' parsed successfully.
+2026-03-03 11:47:31,428 INFO     [config.py:606] <get_config> Config file './options.toml' parse successfully.
+2026-03-03 11:47:31,429 INFO     [input_parser.py:81] <constructor> Amber-like atomistic mode enabled (ensemble=NVT, combining_rule=pairtable, coulomb14_scale=0.8333333333, lj14_scale=0.5, constrain_xh_bonds=False).
+2026-03-03 11:47:31,470 ERROR    [topology.py:187] <prepare_index_based_bonds> Proper dihedral entry requires [i,j,k,l,funct,phi0_deg,k,multiplicity]. Got: [5, 17, 15, 16, 4].

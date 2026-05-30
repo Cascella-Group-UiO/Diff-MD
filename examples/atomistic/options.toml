@@ -1,0 +1,50 @@
+[simulation]
+n_steps = 5000
+n_print = 1
+n_flush = 1
+time_step = 0.001
+respa_inner = 1
+cancel_com_momentum = true
+
+start_temperature = false
+target_temperature = 300.0
+tau = 0.5
+
+pressure = false
+barostat = "no"
+
+coulombtype = "reaction-field"
+dielectric_const = 1.0
+epsilon_rf = 80
+rv = 1.0
+rc = 0.9
+rlj = 0.9
+ns_nlist = 2
+nrexcl = 2
+
+[atomistic_ff]
+ff_family = "amber_like"
+combining_rule = "pairtable"
+coulomb14_scale = 0.8333333333
+lj14_scale = 0.5
+constrain_xh_bonds = false
+ensemble = "NVT"
+
+[field]
+mesh_size = [8, 8, 8]
+kappa = 0.05
+sigma = 0.3
+rho0 = 1.0
+a = 1.0
+LJ_param = [
+    ["C", "C", 0.34, 0.45],
+    ["C", "N", 0.33, 0.40],
+    ["C", "O", 0.32, 0.42],
+    ["C", "H", 0.25, 0.10],
+    ["N", "N", 0.32, 0.35],
+    ["N", "O", 0.31, 0.38],
+    ["N", "H", 0.24, 0.08],
+    ["O", "O", 0.30, 0.30],
+    ["O", "H", 0.23, 0.07],
+    ["H", "H", 0.20, 0.02],
+]

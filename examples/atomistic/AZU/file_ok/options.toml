@@ -1,0 +1,471 @@
+[simulation]
+n_steps = 1000                    # Number of outer steps
+n_print = 1                       # Number of steps after which the positions are saved
+n_flush = 1                       # Number of prints after which the output file is saved
+time_step = 0.0001                # Inner loop timestep (for the fast forces)
+respa_inner = 1                   # Number of inner loop steps. Therefore the timestep for the outer loop is given by (time_step * respa_inner)
+cancel_com_momentum = true        # Whether to remove the center of mass momentum
+
+# electrostatics
+dielectric_const = 60.0
+coulombtype = 'PIC_Spectral'
+
+# temperature
+start_temperature = 323           # Initial temperature
+target_temperature = 323          # Thermostat target temperature
+tau = 0.1                         # Thermostat coupling constant
+thermostat_coupling_groups = [
+    ['N3', 'H', 'CX', 'HP', 'CT', 'HC', 'C', 'O', 'N', 'H1', '2C', 'CO', 'O2',
+ 'S', 'OH', 'HO', '3C', 'HA', 'C8', 'CC', 'NB', 'CR', 'H5', 'CW', 'H4',
+ 'C*', 'CN', 'CB', 'N2', 'CV', 'SH', 'CU', 'Na', 'OW_sp', 'HW_sp'],
+    ['CA', 'NA'],
+]
+
+#TEMPERATURE
+start_temperature = false
+target_temperature = 300.0
+tau = 0.5
+
+#PRESSURE
+pressure = false
+barostat = "no"
+
+#NON_BONDED
+coulombtype = "reaction-field"
+dielectric_const = 1.0
+epsilon_rf = 80
+rv = 1.0
+rc = 0.9
+rlj = 0.9
+ns_nlist = 2
+nrexcl = 2
+
+[atomistic_ff]
+ff_family = "amber_like"
+combining_rule = "pairtable"
+coulomb14_scale = 0.8333333333
+lj14_scale = 0.5
+constrain_xh_bonds = false
+ensemble = "NVT"
+
+
+[field]
+mesh_size = [20, 20, 20]          # FFT mesh grid. Only use even numbers with Diff-HyMD!
+kappa = 0.05                      # Compressibilty
+sigma = 0.5                       # Particle spread
+rho0 = 8.86                       # Particle 'volume'. Optimized value for NPT
+a = 9.21                          # Free parameter to fit water density. Optimized value for NPT
+LJ_param = [
+[ 'Q1', 'Q5', 4.70e-01, 3.79e+00 ],
+[ 'SN4a', 'SN4a', 4.10e-01, 2.60e+00 ],
+[ 'N4a', 'N4a', 4.70e-01, 3.39e+00 ],
+[ 'C1', 'C1', 4.70e-01, 3.39e+00 ],
+[ 'W', 'W', 4.70e-01, 4.65e+00 ],
+[ 'C1', 'N4a', 4.70e-01, 2.79e+00 ],
+[ 'C1', 'Q1', 4.85e-01, 2.578e+00 ],
+[ 'C1', 'Q5', 6.20e-01, 2.046e+00 ],
+[ 'C1', 'SN4a', 4.30e-01, 2.16e+00 ],
+[ 'C1', 'W', 4.70e-01, 2.06e+00 ],
+[ 'N4a', 'Q1', 4.70e-01, 4.726e+00 ],
+[ 'N4a', 'Q5', 4.70e-01, 4.887e+00 ],
+[ 'N4a', 'SN4a', 4.30e-01, 2.93e+00 ],
+[ 'N4a', 'W', 4.65e-01, 3.50e+00 ],
+[ 'Q1', 'Q1', 4.70e-01, 3.98e+00 ],
+[ 'Q1', 'SN4a', 4.30e-01, 4.236e+00 ],
+[ 'Q1', 'W', 4.65e-01, 5.22e+00 ],
+[ 'Q5', 'Q5', 4.70e-01, 6.45e+00 ],
+[ 'Q5', 'SN4a', 4.30e-01, 4.386e+00 ],
+[ 'Q5', 'W', 4.65e-01, 6.34e+00 ],
+[ 'SN4a', 'W', 4.25e-01, 3.00e+00 ],
+]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

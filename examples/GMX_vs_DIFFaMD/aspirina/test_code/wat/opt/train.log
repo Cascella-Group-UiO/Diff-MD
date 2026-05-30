@@ -1,0 +1,156 @@
+2026-03-16 17:27:10,864 INFO     [nn_options.py:317] <get_training_parameters> Training file 'training.toml' parsed successfully.
+2026-03-16 17:27:10,864 INFO     [nn_options.py:318] <get_training_parameters> 
+
+	Optimization parameters:
+	--------------------------------------------------
+	systems: ['dppc']
+	n_epochs: 150
+	equilibration: 5000
+	teacher_forcing: False
+	chain: False
+	shuffle: True
+	batch_size: 1
+	optimizer:
+		name: adabelief
+		learning_rate: 0.1
+		b1: 0.1
+		b2: 0.4
+	loss:
+		name: density_and_apl
+		metric: mse
+		width_ratio: 0.5
+		density_weight: 1
+		apl_weight: 1
+
+2026-03-16 17:27:10,865 ERROR    [input_parser.py:220] <constructor> Unable to parse coordinate file 'dppc/../wat.h5'.
+Traceback (most recent call last):
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/input_parser.py", line 42, in constructor
+    with h5py.File(f"{coord_path}", "r", driver=None) as in_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/h5py/_hl/files.py", line 566, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/h5py/_hl/files.py", line 241, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 104, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'dppc/../wat.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+2026-03-16 17:28:48,256 INFO     [nn_options.py:317] <get_training_parameters> Training file 'training.toml' parsed successfully.
+2026-03-16 17:28:48,257 INFO     [nn_options.py:318] <get_training_parameters> 
+
+	Optimization parameters:
+	--------------------------------------------------
+	systems: ['dppc']
+	n_epochs: 150
+	equilibration: 5000
+	teacher_forcing: False
+	chain: False
+	shuffle: True
+	batch_size: 1
+	optimizer:
+		name: adabelief
+		learning_rate: 0.1
+		b1: 0.1
+		b2: 0.4
+	loss:
+		name: density_and_apl
+		metric: mse
+		width_ratio: 0.5
+		density_weight: 1
+		apl_weight: 1
+
+2026-03-16 17:28:48,258 ERROR    [input_parser.py:220] <constructor> Unable to parse coordinate file 'dppc/wat.h5'.
+Traceback (most recent call last):
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/input_parser.py", line 42, in constructor
+    with h5py.File(f"{coord_path}", "r", driver=None) as in_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/h5py/_hl/files.py", line 566, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/h5py/_hl/files.py", line 241, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 104, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'dppc/wat.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+2026-03-16 17:29:20,415 INFO     [nn_options.py:317] <get_training_parameters> Training file 'training.toml' parsed successfully.
+2026-03-16 17:29:20,416 INFO     [nn_options.py:318] <get_training_parameters> 
+
+	Optimization parameters:
+	--------------------------------------------------
+	systems: ['dppc']
+	n_epochs: 150
+	equilibration: 5000
+	teacher_forcing: False
+	chain: False
+	shuffle: True
+	batch_size: 1
+	optimizer:
+		name: adabelief
+		learning_rate: 0.1
+		b1: 0.1
+		b2: 0.4
+	loss:
+		name: density_and_apl
+		metric: mse
+		width_ratio: 0.5
+		density_weight: 1
+		apl_weight: 1
+
+2026-03-16 17:29:20,416 ERROR    [input_parser.py:220] <constructor> Unable to parse coordinate file 'dppc/wat.h5'.
+Traceback (most recent call last):
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/input_parser.py", line 42, in constructor
+    with h5py.File(f"{coord_path}", "r", driver=None) as in_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/h5py/_hl/files.py", line 566, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/h5py/_hl/files.py", line 241, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 104, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'dppc/wat.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)
+2026-03-16 17:35:10,737 INFO     [nn_options.py:317] <get_training_parameters> Training file 'training.toml' parsed successfully.
+2026-03-16 17:35:10,737 INFO     [nn_options.py:318] <get_training_parameters> 
+
+	Optimization parameters:
+	--------------------------------------------------
+	systems: ['dppc']
+	n_epochs: 150
+	equilibration: 5000
+	teacher_forcing: False
+	chain: False
+	shuffle: True
+	batch_size: 1
+	optimizer:
+		name: adabelief
+		learning_rate: 0.1
+		b1: 0.1
+		b2: 0.4
+	loss:
+		name: density_and_apl
+		metric: mse
+		width_ratio: 0.5
+		density_weight: 1
+		apl_weight: 1
+
+2026-03-16 17:35:10,737 ERROR    [input_parser.py:220] <constructor> Unable to parse coordinate file 'dppc/wat.h5'.
+Traceback (most recent call last):
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/diff_md/input_parser.py", line 42, in constructor
+    with h5py.File(f"{coord_path}", "r", driver=None) as in_file:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/h5py/_hl/files.py", line 566, in __init__
+    fid = make_fid(name, mode, userblock_size, fapl, fcpl, swmr=swmr)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/orlandi/miniconda3/envs/diffmd_test/lib/python3.11/site-packages/h5py/_hl/files.py", line 241, in make_fid
+    fid = h5f.open(name, flags, fapl=fapl)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "h5py/_objects.pyx", line 54, in h5py._objects.with_phil.wrapper
+  File "h5py/_objects.pyx", line 55, in h5py._objects.with_phil.wrapper
+  File "h5py/h5f.pyx", line 104, in h5py.h5f.open
+FileNotFoundError: [Errno 2] Unable to synchronously open file (unable to open file: name = 'dppc/wat.h5', errno = 2, error message = 'No such file or directory', flags = 0, o_flags = 0)

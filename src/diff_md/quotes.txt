@@ -1,0 +1,28 @@
+# Diff-MD end-of-run quotes.  One entry per line: quote | author | date.
+# Lines starting with '#' and blank lines are ignored.
+# Delete this file (or rename it) to disable the end-of-run footer.
+
+The path of the differentiable is paved with traced arrays. | A. Sage | 2026
+JIT compiles the bold; eager compiles the slow. | Anonymous | 2026
+A simulation is just a long argument with the timestep. | Anonymous | 2026
+Gradients flow downhill, but only if the loss is differentiable. | Anonymous | 2026
+Every neighbor list runs out of room eventually. | Anonymous | 2026
+The barostat does not negotiate; it persuades. | Anonymous | 2026
+A checkpoint a day keeps the cluster sysadmin away. | Anonymous | 2026
+In silico, no one can hear your NaN. | Anonymous | 2026
+Energy is conserved; patience is not. | Anonymous | 2026
+The best optimizer is the one that does not blow up sigma. | Anonymous | 2026
+MPAM Merlo Portaci a M...| Friends(best)| Firenze_2014
+Everyone sees what you appear to be, few experience what you really are. | Niccolò Machiavelli | 1513
+The path to paradise begins in hell. | Dante Alighieri | c. 1308
+Simplicity is the ultimate sophistication. | Leonardo da Vinci | c. 1500
+I saw the angel in the marble and carved until I set him free. | Michelangelo Buonarroti | c. 1504
+All truths are easy to understand once they are discovered; the point is to discover them. | Galileo Galilei | 1632
+He who wants to be happy, let him be: of tomorrow there is no certainty. | Lorenzo de' Medici | 1490
+For although the act condemns the doer, the end may justify him. | Niccolò Machiavelli | 1531
+It is much safer to be feared than loved, if one of the two must be lacking. | Niccolò Machiavelli | 1513
+To predict the future is a great thing, but to direct it is even greater. | Francesco Guicciardini | 1512
+Deny what you do not wish to be known, and affirm what you wish to be believed. | Francesco Guicciardini | 1528
+I have offended God and mankind because my work didn't reach the quality it should have. | Leonardo da Vinci | 1519
+From a little spark may burst a mighty flame. | Dante Alighieri | c. 1320
+Why don’t you speak, damn you! | Donatello | 1435 (Spoken to his statue, Zuccone)

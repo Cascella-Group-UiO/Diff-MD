@@ -1,0 +1,33 @@
+;
+;	File 'topol_Ion_chain_X2.itp' was generated
+;	By user: morland1 (126028)
+;	On host: login07.leonardo.local
+;	At date: Tue Feb 24 10:11:01 2026
+;
+;	This is a include topology file
+;
+;	Created by:
+;	                    :-) GROMACS - gmx pdb2gmx, 2022.3 (-:
+;	
+;	Executable:   /leonardo/prod/spack/03/install/0.19/linux-rhel8-icelake/gcc-11.3.0/gromacs-2022.3-ua24bar2hnqufltrictym6qdve7thv57/bin/gmx
+;	Data prefix:  /leonardo/prod/spack/03/install/0.19/linux-rhel8-icelake/gcc-11.3.0/gromacs-2022.3-ua24bar2hnqufltrictym6qdve7thv57
+;	Working dir:  /leonardo_scratch/large/userexternal/morland1/niccolo/RAV/4AZU/pol/QM-MM_el
+;	Command line:
+;	  gmx pdb2gmx -f clust_wholae_IND_358.pdb -ignh
+;	Force field was read from current directory or a relative path - path added.
+;
+
+[ moleculetype ]
+; Name            nrexcl
+Ion_chain_X2        3
+
+[ atoms ]
+;   nr       type  resnr residue  atom   cgnr     charge       mass  typeB    chargeB      massB
+; residue 6962 NA  rtp NA   q +1.0
+     1         Na   6962     NA     NA      1          1      22.99   ; qtot 1
+
+; Include Position restraint file
+#ifdef POSRES
+#include "posre_Ion_chain_X2.itp"
+#endif
+
