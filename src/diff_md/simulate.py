@@ -28,7 +28,8 @@ from .nonbonded import (
 from .thermostat import (
     apply_thermostat,
     cancel_com_momentum,
-    generate_initial_velocities
+    generate_initial_velocities,
+    translational_dof,
 )
 from .neighbor_list import (
     build_neighbor_list_cell,
@@ -361,7 +362,7 @@ def simulator(
     if n_print > 0:
         # NOTE: we don't need to save all this stuff for the differentiable MD
         kinetic_energy = 0.5 * jnp.sum(masses * jnp.sum(velocities**2, axis=1))
-        temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
+        temperature = 2 * kinetic_energy / (config.R * translational_dof(config.n_particles))
         trj["angle energy"] = [angle_energy]
         trj["bond energy"] = [bond_energy]
         trj["dihedral energy"] = [dihedral_energy]
@@ -952,7 +953,7 @@ def simulator(
                  _ovf) = carry
                 current_box = config.box_size
             ke = 0.5 * jnp.sum(masses * jnp.sum(vel_c**2, axis=1))
-            temp = (2 / 3) * ke / (config.R * config.n_particles)
+            temp = 2 * ke / (config.R * translational_dof(config.n_particles))
             trj["angle energy"].append(ae_c)
             trj["bond energy"].append(be_c)
             trj["dihedral energy"].append(de_c)

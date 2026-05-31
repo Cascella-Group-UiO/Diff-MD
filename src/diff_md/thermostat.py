@@ -2,6 +2,24 @@ import jax.numpy as jnp
 import jax
 
 
+def translational_dof(n_particles):
+    """Number of thermal translational degrees of freedom for ``n_particles``.
+
+    The global center-of-mass velocity is removed at initialization
+    (``generate_initial_velocities``) and kept removed by ``cancel_com_momentum``,
+    so for ``N > 1`` only ``3N - 3`` independent momenta carry thermal energy.
+    This matches GROMACS' default linear center-of-mass-motion removal and the
+    per-group convention already used by ``csvr_thermostat``. Initialization,
+    temperature reporting, and the thermostat must all use this same count or
+    they disagree (initialization runs hot by ``N/(N-1)`` while a ``3N``
+    denominator silently reports the target).
+
+    ``n_particles`` is static (a plain Python int from ``Config``/``ThermostatGroup``
+    metadata), so this returns a Python int usable as a constant inside jit.
+    """
+    return 3 * n_particles - 3 if n_particles > 1 else 3
+
+
 @jax.jit
 def cancel_com_momentum(velocities, masses):
     masses = jnp.reshape(masses, (-1, 1))
@@ -27,7 +45,11 @@ def generate_initial_velocities(velocities, key, config, masses):
     speed2 = jnp.sum(velocities**2, axis=1, keepdims=True)
     kinetic_energy = 0.5 * jnp.sum(masses * speed2)
 
-    factor = jnp.sqrt(1.5 * config.n_particles * kT_start / kinetic_energy)
+    # Rescale to the equipartition target for the physical DOF count (3N-3 after
+    # the COM removal just applied), not 3N — otherwise the velocities come out
+    # hot by N/(N-1). 0.5 * dof * kT == target kinetic energy.
+    target_kinetic = 0.5 * translational_dof(config.n_particles) * kT_start
+    factor = jnp.sqrt(target_kinetic / kinetic_energy)
     return velocities * factor
 
 
@@ -53,8 +75,8 @@ def csvr_thermostat(velocity, key, config, masses):
         com_velocity = jnp.sum(group_masses * velocity, axis=0) / total_group_mass
         group_velocity = (velocity - com_velocity) * group_mask
 
-        dof = 3 * group.n_particles - 3 if group.n_particles > 1 else 3
-        
+        dof = translational_dof(group.n_particles)
+
         speed2 = jnp.sum(group_velocity**2, axis=1, keepdims=True)
         kinetic_energy = 0.5 * jnp.sum(masses * speed2)
         # Guard against zero/tiny kinetic energy to avoid NaNs in the CSVR ratio terms.

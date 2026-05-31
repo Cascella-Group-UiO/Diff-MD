@@ -46,6 +46,7 @@ from .thermostat import (
     apply_thermostat,
     cancel_com_momentum,
     generate_initial_velocities,
+    translational_dof,
 )
 from .neighbor_list import (
     apply_nlist, 
@@ -1084,7 +1085,7 @@ def main(args):
     if config.n_print is not None and config.n_print > 0 and not out_dataset._is_append:
         step = 0
         frame = 0
-        temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
+        temperature = 2 * kinetic_energy / (config.R * translational_dof(config.n_particles))
 
         # Compute initial pressure for NPT, zero for NVT/NVE
         if _is_npt:
@@ -1405,7 +1406,7 @@ def main(args):
             kinetic_energy = 0.5 * jnp.sum(
                 _masses * jnp.linalg.norm(velocities, axis=1) ** 2
             )
-            temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
+            temperature = 2 * kinetic_energy / (config.R * translational_dof(config.n_particles))
 
             # Use instantaneous pressure from scan carry for NPT
             if _is_npt:
@@ -1644,7 +1645,7 @@ def main(args):
 
         frame = (step + 1) // config.n_print
         last_written_frame = frame
-        temperature = (2 / 3) * kinetic_energy / (config.R * config.n_particles)
+        temperature = 2 * kinetic_energy / (config.R * translational_dof(config.n_particles))
 
         # Use instantaneous pressure from scan carry for NPT
         if _is_npt:
