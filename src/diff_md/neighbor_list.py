@@ -182,6 +182,7 @@ def build_neighbor_list_cell(
     box_size_np,
     r_cut: float,
     initial_capacity: int,
+    capacity_multiplier: float = 1.0,
 ):
     """Build a neighbor list using a cell-list algorithm (NumPy).
 
@@ -313,7 +314,13 @@ def build_neighbor_list_cell(
         all_i = np.empty(0, dtype=np.int32)
         all_j = np.empty(0, dtype=np.int32)
         n_pairs = 0
-    capacity = max(n_pairs, initial_capacity)
+    # Pad the measured pair count by the verlet-buffer head-room multiplier so
+    # the allocation has margin above the current frame (same policy as the
+    # jax-md ``capacity_multiplier``). ``1.0`` reproduces the old exact-fit
+    # behaviour. mdrun's overflow re-allocation reuses this to grow capacity.
+    # ``n_pairs`` is kept in the max so the allocation can never fall below the
+    # exact pair count (a multiplier < 1 must not truncate real pairs).
+    capacity = max(n_pairs, int(np.ceil(n_pairs * capacity_multiplier)), initial_capacity)
 
     neigh_i = np.full(capacity, -1, dtype=np.int32)
     neigh_j = np.full(capacity, -1, dtype=np.int32)

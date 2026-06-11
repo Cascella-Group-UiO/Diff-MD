@@ -840,11 +840,23 @@ def main(args):
             f"capacity={nbrs.idx.shape[1]})"
         )
     else:
+        # Head-room is applied LAZILY for maximum performance: the initial
+        # allocation stays at the conservative estimate (no extra padding), and
+        # the between-chunk overflow re-allocator below grows capacity by
+        # ``cap_mult`` ONLY if the list actually overflows. Systems that never
+        # overflow (the common case, e.g. dense uniform solvent) therefore pay
+        # zero extra cost; only a genuinely under-sized list (large non-uniform
+        # atomistic systems) takes one re-allocation and then runs with margin.
+        cap_mult = getattr(config, 'nlist_capacity_multiplier', 1.25)
         dens = config.n_particles / config.box_size.prod()
         max_neighbors = int((1/2) * config.n_particles * ( 4 * jnp.pi * rv**3 / 3 ) * dens)
         max_neighbors += 5000 # Add a buffer for safety
         neigh_i, neigh_j, max_neighbors = build_neighbor_list_cell(
             positions, config.box_size, rv, max_neighbors
+        )
+        Logger.rank0.info(
+            f"Using cell neighbor list (r_cut={rv:.3f}, "
+            f"initial_capacity={max_neighbors}, overflow_growth={cap_mult})"
         )
     ref_positions = jnp.array(positions)  # snapshot for Verlet displacement check
 
@@ -1395,6 +1407,41 @@ def main(args):
                      LJ_energy, elec_energy, bond_energy, angle_energy, dihedral_energy,
                      key, pair_params_14, excl_pair_params,
                      neigh_i, neigh_j, nlist_state, any_overflow)
+            if _is_npt:
+                carry = carry + (box_state, inst_pressure)
+
+        # Cell-list overflow re-allocation (Python-level, between scan chunks) —
+        # mirror of the jax-md path above so the cell backend ALSO recovers from
+        # a capacity overflow instead of silently truncating pairs (which starves
+        # the nonbonded forces and lets the energy explode after a few ps). Runs
+        # only when an overflow actually occurred; the per-frame head-room
+        # (capacity_multiplier) makes this rare after the first chunk, so the
+        # steady-state cost is zero. build_neighbor_list_cell is O(N) (host cell
+        # list); the new capacity changes neigh_i.shape so the next chunk
+        # recompiles once — identical behaviour to the jax-md reallocation.
+        elif nlist_method != "jaxmd" and jax.device_get(jnp.bool_(any_overflow)):
+            Logger.rank0.warning(
+                "cell neighbor list overflow — re-allocating with larger capacity."
+            )
+            current_box = box_state.box_size if _is_npt else config.box_size
+            neigh_i, neigh_j, _new_cap = build_neighbor_list_cell(
+                onp.asarray(positions), onp.asarray(current_box), rv,
+                neigh_i.shape[0], capacity_multiplier=cap_mult,
+            )
+            if _has_excl_main:
+                neigh_i, neigh_j = exclude_bonded_neighbors(
+                    neigh_i, neigh_j,
+                    excluded_for_main[0], excluded_for_main[1],
+                )
+            any_overflow = jnp.array(False)
+            # nlist_state for the cell backend IS ref_positions; reset it to the
+            # rebuild point so the displacement-based rebuild stays correct.
+            carry = (positions, velocities,
+                     LJ_forces, elec_forces, reconstr_forces,
+                     bond_forces, angle_forces, dihedral_forces, improper_forces,
+                     LJ_energy, elec_energy, bond_energy, angle_energy, dihedral_energy,
+                     key, pair_params_14, excl_pair_params,
+                     neigh_i, neigh_j, positions, any_overflow)
             if _is_npt:
                 carry = carry + (box_state, inst_pressure)
 
