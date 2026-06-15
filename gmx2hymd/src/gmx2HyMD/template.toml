@@ -31,7 +31,7 @@ rlj = 0.9
 ns_nlist = 20                     #number of n. steps between the trial update of Verlet list
 nrexcl = 3                        #3 for automatic exclusion if 1-4 int (2 for manual, CHARMM)
 skin = 0.2                        #Buffer for Verlet list (Default is skin/2 for V.List)
-lj_force_shift = true             # LJ Force shifting enabled, the LJ E is already shifted by default at rlj
+lj_force_shift = false            # false = potential-shift V(r)-V(rc) with raw force = GROMACS 'vdw-modifier = Potential-shift[-verlet]' (the Verlet-scheme default; needed to reproduce GROMACS LJ). true = force-shift (smooth force at rc, better Diff-MD energy conservation, but NOT GROMACS-faithful).
 nlist_method = "jaxmd"            # Algorithm to update the Verlet list
 
 [atomistic_ff]

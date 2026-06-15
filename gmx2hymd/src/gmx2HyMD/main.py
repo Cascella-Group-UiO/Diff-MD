@@ -14,7 +14,7 @@ from .cmap_utils import (
 from .ff_utils import detect_ff_family, parse_ff_tree
 from .gro_utils import load_gro
 from .h5_utils import three_to_one, write_coordinates
-from .lj_utils import build_lj_param, format_lj_param_toml
+from .lj_utils import build_lj_param, format_lj_param_toml, format_lj_type_param_toml
 from .pdb_utils import load_pdb
 from .system_properties import derive_thermo_groups, get_system_properties
 from .toml_utils import write_topology
@@ -143,7 +143,12 @@ def write_simulation_parameters(
     the pre-CG version (solvent/non-solvent thermostat heuristic, no
     ``LJ_param`` injection, ``ff_family`` left at template default).
     """
-    template = os.path.abspath(os.path.dirname(__file__)) + "/template.toml"
+    # Two starting templates: a coarse-grained one (Martini reaction-field,
+    # nrexcl=1, potential-shift LJ) and the atomistic one (PME, nrexcl=3).
+    # Pick by ff_family so a `--cg` / `--ff-family martini` conversion lands
+    # on Martini-faithful electrostatics/cutoffs instead of the AA defaults.
+    template_name = "template_cg.toml" if ff_family == "martini" else "template.toml"
+    template = os.path.join(os.path.abspath(os.path.dirname(__file__)), template_name)
     out_lines = []
 
     all_names = np.array(names, dtype=str)
@@ -162,6 +167,7 @@ def write_simulation_parameters(
     with open(template, "r", encoding="utf-8") as infile:
         in_lj_array = False
         in_field_lj_param = False
+        skip_lj_type_block = False
         for line in infile:
             stripped = line.strip()
 
@@ -190,9 +196,12 @@ def write_simulation_parameters(
                 continue
 
             if stripped.startswith("LJ_param"):
-                # Inject the freshly-built LJ_param block in place of the
-                # template's empty placeholder.
-                if lj_param is not None:
+                # Martini (lj_input_source="input") uses LJ_param as the
+                # explicit pair table built in coupled mode. Atomistic
+                # (lj_input_source="mixing") carries LJ per-type in the
+                # LJ_type_param block below, so its LJ_param stays the empty
+                # template placeholder (the pair/couple rows are optional).
+                if ff_family == "martini" and lj_param is not None:
                     out_lines.append(format_lj_param_toml(lj_param) + "\n")
                     in_field_lj_param = True
                     continue
@@ -202,7 +211,7 @@ def write_simulation_parameters(
 
             if in_field_lj_param:
                 if stripped == "]":
-                    if lj_param is None:
+                    if not (ff_family == "martini" and lj_param is not None):
                         out_lines.append(line)
                     in_field_lj_param = False
                 continue
@@ -210,6 +219,13 @@ def write_simulation_parameters(
             if stripped.startswith("LJ_type_param"):
                 if ff_family == "martini":
                     in_lj_array = True
+                    continue
+                # Atomistic: replace the template's static type list with the
+                # system's per-type sigma/epsilon (consumed under "mixing").
+                if lj_param is not None:
+                    out_lines.append(format_lj_type_param_toml(lj_param) + "\n")
+                    in_lj_array = True
+                    skip_lj_type_block = True
                     continue
                 out_lines.append(line)
                 in_lj_array = True
@@ -219,14 +235,19 @@ def write_simulation_parameters(
                 if stripped == "]":
                     if ff_family == "martini":
                         in_lj_array = False
+                        skip_lj_type_block = False
                         continue
                     if ligand_lj_lines:
                         out_lines.append("    # --- CUSTOM LIGAND TYPES --- \n")
                         out_lines.extend(ligand_lj_lines)
                     out_lines.append(line)
                     in_lj_array = False
+                    skip_lj_type_block = False
                     continue
                 if ff_family == "martini":
+                    continue
+                if skip_lj_type_block:
+                    # Template's static rows are replaced by the system block.
                     continue
 
             out_lines.append(line)

@@ -233,8 +233,8 @@ def build_lj_param(
 def format_lj_param_toml(rows: Iterable[tuple[str, str, float, float]]) -> str:
     """Render ``rows`` as a TOML array-of-arrays literal.
 
-    Output matches the hand-written reference ``options.toml`` files used by the
-    multi-system training examples.
+    Output matches the hand-written reference TOMLs in
+    ``DIRxClaude_example/multi_mpi/DIFF_SYS/*/options.toml``.
     """
     lines = ["LJ_param = ["]
     for a, b, sig, eps in rows:
@@ -242,4 +242,24 @@ def format_lj_param_toml(rows: Iterable[tuple[str, str, float, float]]) -> str:
             f'[ "{a}", "{b}", {sig:.6e}, {eps:.6e}],'
         )
     lines.append("]")
+    return "\n".join(lines)
+
+
+def format_lj_type_param_toml(rows: Iterable[tuple[str, str, float, float]]) -> str:
+    """Render the per-type self-rows of ``rows`` as an ``LJ_type_param`` header.
+
+    Atomistic Diff-MD runs (``lj_input_source = "mixing"``) take per-type
+    sigma/epsilon as ``[type_name, sigma, epsilon]`` and build cross
+    interactions from ``combining_rule``. Only self-rows (``type1 == type2``)
+    are emitted; explicit cross/couple rows, if any, belong in the optional
+    ``LJ_param`` block.
+
+    The closing ``]`` is intentionally omitted so the caller can append custom
+    ligand rows before closing the array.
+    """
+    lines = ["LJ_type_param = ["]
+    for a, b, sig, eps in rows:
+        if a != b:
+            continue
+        lines.append(f'    [ "{a}", {sig:.6e}, {eps:.6e} ],')
     return "\n".join(lines)

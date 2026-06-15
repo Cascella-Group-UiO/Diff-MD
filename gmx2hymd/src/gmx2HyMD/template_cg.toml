@@ -1,0 +1,51 @@
+[simulation]
+ensemble = "NVT"
+n_steps = 1000                    # Number of "outer" steps
+n_print = 10                      # Number of steps after which the positions are saved
+n_flush = 1                       # Number of prints after which the output file is saved
+time_step = 0.02                  # ps. Martini default is 0.02 (20 fs); drop to 0.01 if unstable
+respa_inner = 1                   # Number of inner loop steps. Outer timestep = time_step * respa_inner
+cancel_com_momentum = 100         # how often removing the center of mass momentum
+
+# temperature
+thermostat = "v-rescale"          # Bussi-Donadio-Parrinello implemented
+start_temperature = 300.0         # Initial temperature
+target_temperature = 300.0        # Thermostat target temperature
+tau = 1.0                         # Thermostat coupling constant (Martini v-rescale tau_t ~ 1.0)
+thermostat_coupling_groups = []
+
+#PRESSURE
+pressure = false
+barostat = "no"
+
+#ELECTROSTATIC (Martini reaction-field defaults)
+coulombtype = "reaction-field"    # Martini uses reaction-field, not PME
+dielectric_const = 15             # GROMACS epsilon_r (Martini relative dielectric)
+epsilon_rf = 80                   # GROMACS epsilon_rf (reaction-field continuum; 0 = infinite)
+
+#NON_BONDED CUT-OFFs (Martini)
+rv = 1.3                          # Verlet-list radius (GROMACS r_list / verlet buffer)
+rc = 1.1                          # Coulomb cutoff (GROMACS rcoulomb)
+rlj = 1.1                         # Lennard-Jones cutoff (GROMACS rvdw)
+ns_nlist = 10                     # steps between Verlet-list rebuilds (GROMACS nstlist)
+nrexcl = 1                        # Martini moleculetypes exclude only directly bonded (1) neighbors
+lj_force_shift = false            # false = potential-shift V(r)-V(rc) with raw force = GROMACS 'vdw-modifier = Potential-shift[-verlet]' (needed to reproduce GROMACS LJ). true = force-shift (NOT GROMACS-faithful).
+nlist_method = "jaxmd"            # Algorithm to update the Verlet list
+
+[atomistic_ff]
+ff_family = "martini"
+combining_rule = "pairtable"      # Martini provides explicit per-pair sigma/epsilon
+lj_input_source = "input"
+coulomb14_scale = 0.8333333333
+lj14_scale = 0.5
+constrain_xh_bonds = false
+
+
+[field]
+mesh_size = [20, 20, 20]          # FFT mesh grid (unused with reaction-field; kept for the field path)
+kappa = 0.05                      # Compressibilty
+sigma = "auto"                    # PME parameter of truncation, select "auto" if uncertain
+rho0 = 8.86                       # Particle 'volume'. Optimized value for NPT
+a = 9.21                          # Free parameter to fit water density. Optimized value for NPT
+LJ_param = [                      # LJ self/cross rows: [type1, type2, sigma_nm, eps_kJmol] (injected by gmx2diffmd)
+]

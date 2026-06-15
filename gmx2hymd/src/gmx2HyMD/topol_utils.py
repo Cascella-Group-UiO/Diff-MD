@@ -3,6 +3,8 @@ from typing import Callable, TypeVar
 
 import parse
 
+from . import ff_utils
+
 
 AUTO_INCLUDE_ITP_MAP = {
     "spce.itp": "ions_spce.itp",
@@ -73,17 +75,28 @@ def _skip_or_tokens(line: str):
 
 def _parse_bonded_defaults(itp_paths: list[str]) -> BondedDefaults:
     defaults = BondedDefaults()
+    # The bonded parameter tables ([bondtypes]/[angletypes]/[dihedraltypes])
+    # normally live in ffbonded.itp, which a GROMACS .top reaches only
+    # indirectly via forcefield.itp's #include. Follow #include directives
+    # (cycle-guarded; one shared `seen` set so each physical file is parsed
+    # exactly once -- re-reading would duplicate the appended dihedral rows) so
+    # those tables are found even when not listed directly in the .top. This
+    # mirrors the include-following ff_utils already does for the LJ tables.
+    seen: set[str] = set()
     for itp_path in itp_paths:
-        try:
-            with open(itp_path, "r", encoding="utf-8") as infile:
-                lines = infile.readlines()
-        except OSError:
-            continue
-
         current_sec = None
         ifdef = False
         inner_ifdef = False
-        for line in lines:
+        prev_src = None
+        for line, src in ff_utils._iter_lines(itp_path, seen):
+            if src != prev_src:
+                # Crossed into a new physical file (a followed #include): reset
+                # section/ifdef state so context never leaks across files.
+                current_sec = None
+                ifdef = False
+                inner_ifdef = False
+                prev_src = src
+
             section = _section_name(line)
             if section is not None:
                 current_sec = section
