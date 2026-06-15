@@ -659,6 +659,7 @@ All loss functions accept a `metric` parameter defining the error measure:
 | `rmse` | `sqrt(mean((pred - target)²))` | Penalizes large deviations more |
 | `smape` | `mean(\|pred - target\| / (\|pred\| + \|target\|))` | Scale-independent, range [0, 1] |
 | `l2e` | `\|\|pred - target\|\|₂` | Euclidean distance |
+| `wasserstein_1d` | 1-D Wasserstein (earth-mover) distance | Distribution-aware; well suited to KDE/histogram targets |
 
 
 ### Boundary Constraint

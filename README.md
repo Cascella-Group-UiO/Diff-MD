@@ -5,6 +5,32 @@ Instead of using the hybrid particle-field Hamiltonian, this version uses regula
 
 To read more about ∂-HyMD check the paper [here](https://pubs.acs.org/doi/10.1021/acs.jcim.4c00564).
 
+For force-field **training** (which LJ parameters to optimize, loss functions,
+constraints) see [`TRAIN.md`](TRAIN.md); for the optimization internals
+(gradient methods, checkpointing, restart) see [`OPTIMIZE.md`](OPTIMIZE.md).
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Example usage](#example-usage)
+- [Optimization](#optimization)
+- [Parameter Constraints and Bounds](#parameter-constraints-and-bounds)
+- [Units for TOML inputs](#units-for-toml-inputs)
+- [PME/Ewald Accuracy (`sigma` and `rc`)](#pmeewald-accuracy-sigma-and-rc)
+- [B-spline PME Interpolation](#b-spline-pme-interpolation)
+- [LJ Force-Shift and NVE Ensemble](#lj-force-shift-and-nve-ensemble)
+- [Integrator](#integrator)
+- [NPT Barostat (Constant Pressure)](#npt-barostat-constant-pressure)
+- [Neighbor List And Verlet Skin](#neighbor-list-and-verlet-skin)
+- [Neighbor List Rebuild Logic (detailed)](#neighbor-list-rebuild-logic-detailed)
+- [jax-md Neighbor List (alternative backend)](#jax-md-neighbor-list-alternative-backend)
+- [Testing](#testing)
+- [Whole-molecule unwrapping for visualisation output](#whole-molecule-unwrapping-for-visualisation-output)
+- [Optimization call graph](#optimization-call-graph)
+- [Available loss functions](#available-loss-functions)
+- [AMBER ff19SB / CMAP Support](#amber-ff19sb--cmap-support)
+- [Recent Changes](#recent-changes)
+
 ## Installation
 > **Note**:
 > If installing on Saga or Betzy you need to first load the `python` and `openmpi` modules

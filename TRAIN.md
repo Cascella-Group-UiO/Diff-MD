@@ -1,5 +1,57 @@
 # Diff-aMD Training Guide
 
+Diff-aMD (`diff_md optimize`) turns molecular-dynamics simulation into a
+*differentiable* function of the force-field parameters. It runs short MD
+trajectories inside an automatic-differentiation graph (JAX), computes a
+physical observable from each trajectory (e.g. a density profile, a
+radius-of-gyration distribution, a metal–ligand coordination distance),
+compares it to a reference target, and backpropagates that error **through the
+entire simulation** to update the parameters. The result is a force field whose
+simulated observables match your reference data.
+
+Today the trainable parameters are the **Lennard-Jones** σ and ε terms;
+everything else in the force field (bonds, angles, dihedrals, electrostatics) is
+held fixed and enters the gradient only through the dynamics. Optimization is
+driven by a loss function chosen in `training.toml`, with optional soft
+penalties and hard bounds that keep parameters physical.
+
+This guide covers how to declare which LJ parameters to train, the available
+loss functions and metrics, how to constrain parameters, and the
+coordination-distance losses used for metal sites. For the simulation engine and
+runtime options see `README.md`; for the optimization internals (gradient
+methods, checkpointing, restart) see `OPTIMIZE.md`.
+
+**Typical command:**
+
+```bash
+diff_md optimize -f input.h5 -p topol.toml -c options.toml -m training.toml
+```
+
+- `-f input.h5` — initial coordinates, velocities, and box
+- `-p topol.toml` — topology (bonded terms, exclusions, atom types)
+- `-c options.toml` — runtime/simulation options (cutoffs, thermostat, neighbor list)
+- `-m training.toml` — **the training configuration** (the subject of this guide)
+
+## Table of Contents
+
+- [How LJ Parameters Are Specified in `training.toml`](#how-lj-parameters-are-specified-in-trainingtoml)
+  - [Mode 1: Pair Mode (`LJ_param`)](#mode-1-pair-mode-lj_param)
+  - [Mode 2: Type Mode (`LJ_type_param`)](#mode-2-type-mode-lj_type_param)
+  - [How the Internal Mapping Works](#how-the-internal-mapping-works)
+- [Concrete Examples for Zn Coordination (SZ, NZ, ZN)](#concrete-examples-for-zn-coordination-sz-nz-zn)
+- [Loss Function Reference](#loss-function-reference)
+  - [Available Losses](#available-losses)
+  - [Available Metrics](#available-metrics)
+  - [Constraints and Boundaries](#constraints-and-boundaries)
+- [Coordination Losses for Metal Sites](#coordination-losses-for-metal-sites)
+  - [Distance distribution loss](#distance-distribution-loss)
+  - [Mean distance loss](#mean-distance-loss)
+  - [Tetrahedral order losses](#tetrahedral-order-losses)
+  - [Writing your own loss](#writing-your-own-loss)
+- [Useful Training Options](#useful-training-options)
+
+---
+
 ## How LJ Parameters Are Specified in `training.toml`
 
 Diff-MD supports two modes for specifying which Lennard-Jones parameters to optimize.
@@ -203,14 +255,22 @@ def loss_name(
 
 ### Available Losses
 
-| Name | Target Observable | System Args |
-|------|-------------------|-------------|
+| Name | Target Observable | Key System Args |
+|------|-------------------|-----------------|
 | `density_and_apl` | Lateral density profile + area per lipid | `z_range`, `com_type`, `n_lipids`, `target_density`, `target_apl` |
 | `radius_of_gyration` | Mean Rg | `n_chains`, `chain_indices`, `chain_masses`, `target_rg` |
 | `radius_of_gyration_dist` | Rg probability distribution (KDE) | `n_chains`, `chain_indices`, `chain_masses`, `data_range`, `target_dist` |
 | `radius_of_gyration_median` | Median Rg across replicas | same as `radius_of_gyration` |
 | `radius_of_gyration_filter_repls` | Filtered mean Rg | same as `radius_of_gyration` |
 | `radius_of_gyration_and_end_to_end` | Rg + end-to-end distance | same + `target_end_to_end` |
+| `coordination_distance` | Mean metal–ligand distance(s) | `coord_pairs`, `target_distances` |
+| `coordination_distance_dist` | Metal–ligand distance distribution (KDE) | `coord_pairs`, `data_range`, `target_dist` |
+| `coordination_tetrahedral` | Tetrahedral order *q* + site distances | per-site metal/ligand defs, `target_q`, `target_site_distances` |
+| `coordination_tetrahedral_dist` | Tetrahedral *q* + distance distributions | per-site defs, `data_range`, `target_dist`, `target_q` |
+
+The Rg observables are mass-weighted about the center of mass (matching
+`gmx gyrate`). The coordination losses are documented in detail in
+[Coordination Losses for Metal Sites](#coordination-losses-for-metal-sites).
 
 ### Available Metrics
 
@@ -222,6 +282,10 @@ Specified in `[nn.loss] metric = "..."`:
 | `rmse` | Root mean squared error |
 | `smape`| Symmetric mean absolute percentage error |
 | `l2e`  | L2 norm of error |
+| `wasserstein_1d` | 1-D Wasserstein (earth-mover) distance — well suited to comparing distributions |
+
+The metric name maps directly to the function of the same name in
+`src/diff_md/losses.py`.
 
 ### Constraints and Boundaries
 
@@ -352,370 +416,140 @@ clip_epsilon_max = 20.0
 
 ---
 
-## Distance Distribution Loss Template
+## Coordination Losses for Metal Sites
 
-Below is a template for a new loss function that matches **pairwise distance distributions**
-between specific atom types (e.g., SZ–ZN and NZ–ZN coordination distances).
-This would be added to `src/diff_md/losses.py`.
+These losses optimize LJ parameters so that the **coordination geometry** of a
+metal centre (and its ligands) matches a reference, typically from QM/MM. They
+cover mean distances, full distance distributions, and the tetrahedral order
+parameter, and all of them accept the same constraint/boundary options described
+above.
 
-```python
-def distance_distribution(
-    # fmt: off
-    model, system, key, start_temperature, comm,
-    # System-specific args (from [nn.system_args.<name>])
-    pair_selections,        # list of (type_name_A, type_name_B) pairs
-    target_dist,            # (n_pairs, n_bins) target distributions
-    data_range,             # (n_bins,) bin centers in nm
-    # Loss args (from [nn.loss])
-    metric,
-    dist_weight=1.0,
-    width_ratio=1.0,
-    k_constraint=0.01,
-    boundary=None, boundary_S=2, boundary_C=500,
-    constraint=None,
-):
-    """Loss based on pairwise distance distributions (KDE) for specific atom-type pairs.
+### Distance distribution loss
 
-    Use case: optimizing LJ parameters to reproduce coordination distances,
-    e.g. SZ-ZN (cysteine sulfur to zinc) and NZ-ZN (histidine nitrogen to zinc).
-    """
-    sgm_table, epsl_table, param_constraints, types = get_LJ_param(
-        model, system.config, jnp.array(system.types)
-    )
-
-    trj, key, config = simulator(
-        # fmt: off
-        model, system.positions, system.velocities, types,
-        system.masses, system.charges, sgm_table, epsl_table,
-        key, system.topol, system.config, start_temperature,
-    )
-
-    comm_size = comm.Get_size()
-    n_frames = len(trj["positions"])
-    n_bins = data_range.size
-    bin_size = float(data_range[1] - data_range[0])
-    bandwidth = float(width_ratio * bin_size)
-    n_pairs = len(pair_selections)
-
-    # Skip initial equilibration frames
-    n_skip = 0
-    n_frames_adj = n_frames - n_skip
-
-    kde_dists = jnp.zeros((n_pairs, n_bins))
-
-    # Build index masks for each requested atom-type pair
-    # pair_selections is a list of (idx_type_A, idx_type_B) after parsing
-    # (nn_options converts type names to integer indices via name_to_type)
-
-    for pos, box in zip(trj["positions"][n_skip:], trj["box"][n_skip:]):
-        for p_idx, (type_a, type_b) in enumerate(pair_selections):
-            # Select atoms of each type
-            mask_a = system.types == type_a
-            mask_b = system.types == type_b
-            idx_a = jnp.where(mask_a, size=jnp.sum(mask_a))[0]
-            idx_b = jnp.where(mask_b, size=jnp.sum(mask_b))[0]
-
-            pos_a = pos[idx_a]  # (n_a, 3)
-            pos_b = pos[idx_b]  # (n_b, 3)
-
-            # Compute minimum-image pairwise distances
-            # dx shape: (n_a, n_b, 3)
-            dx = pos_a[:, None, :] - pos_b[None, :, :]
-            dx = dx - box * jnp.round(dx / box)
-            distances = jnp.sqrt(jnp.sum(dx ** 2, axis=-1))  # (n_a, n_b)
-
-            # Flatten and apply KDE
-            flat_dists = distances.ravel()
-            gaussians = gaussian_kde(flat_dists, bw_method=bandwidth)
-            kde_value = gaussians(data_range)
-            kde_dists = kde_dists.at[p_idx].add(kde_value)
-
-    # Average over frames and MPI ranks
-    kde_dists = mpi4jax.allreduce(kde_dists, op=MPI.SUM, comm=comm)
-    kde_dists /= comm_size * n_frames_adj
-
-    # Normalize each distribution to unit area
-    kde_dists = kde_dists / (jnp.sum(kde_dists, axis=1, keepdims=True) * bin_size + 1e-12)
-
-    # Compute per-pair error and average
-    error = jnp.sum(dist_weight * metric(kde_dists, target_dist, axis=1)) / n_pairs
-
-    # Parameter constraints
-    if constraint:
-        error += constraint(model.LJ_param, k_constraint, param_constraints)
-
-    # Boundary penalty
-    if boundary:
-        error += boundary_constraint(epsl_table, boundary_C, boundary_S, boundary)
-
-    return error, (
-        {"distance_distributions": kde_dists},
-        trj,
-        key,
-        config,
-        types,
-    )
-```
-
-### Corresponding `training.toml` for the Distance Distribution Loss
+`coordination_distance_dist` matches the **distribution** of distances between
+two atom types (e.g. metal–ligand) against a reference. For each pair type it
+builds one Gaussian KDE from all distances collected over the whole trajectory
+(and all MPI replicas), then compares it to the target with the chosen metric.
 
 ```toml
 [nn]
 systems = ["zn_system"]
 n_epochs = 50
-equilibration = 0
-teacher_forcing = false
 
 [nn.optimizer]
 name = "adam"
 learning_rate = 0.001
 
 [nn.loss]
-name = "distance_distribution"
-metric = "mse"
+name = "coordination_distance_dist"
+metric = "mse"            # or "wasserstein_1d" for distribution matching
 dist_weight = 1.0
-width_ratio = 1.0
+width_ratio = 1.0         # KDE bandwidth = width_ratio * bin_size
 k_constraint = 0.01
 constraint = "harmonic"
-boundary = 25.0
+upper_boundary = 50.0
+lower_boundary = 0.05
 
 [nn.system_args."zn_system"]
-# Pairs whose distance distribution we want to match
-# (converted to type indices internally via name_to_type)
-pair_selections = [["SZ", "ZN"], ["NZ", "ZN"]]
-# Reference distributions: .npy file with shape (n_pairs, n_bins)
-target_dist = "reference_dist.npy"
-# Bin centers in nm: .npy file with shape (n_bins,)
-data_range = "dist_bins.npy"
+coord_pairs = [["SZ", "ZN"], ["NZ", "ZN"]]   # type-name pairs; converted to indices internally
+target_dist = "reference_dist.xvg"            # .xvg/.npy: row 0 = bin centres (nm), rows 1.. = per-pair target densities
 
-# --- Option A: optimize SZ-ZN and NZ-ZN pairs separately (pair mode) ---
 [nn.model]
 LJ_param = [
-    ["SZ",  "ZN",  2.50e-01, 0.500, "on_eps"],
-    ["NZ",  "ZN",  2.60e-01, 0.400, "on_eps"],
-    ["SZ",  "SZ",  3.10e-01, 0.250],
-    ["SZ",  "NZ",  3.00e-01, 0.300],
-    ["NZ",  "NZ",  3.20e-01, 0.350],
-    ["ZN",  "ZN",  2.00e-01, 0.100],
+    ["SZ", "ZN", 2.50e-01, 0.500, "on_eps"],
+    ["NZ", "ZN", 2.60e-01, 0.400, "on_eps"],
+    ["SZ", "SZ", 3.10e-01, 0.250],
+    ["NZ", "NZ", 3.20e-01, 0.350],
+    ["ZN", "ZN", 2.00e-01, 0.100],
 ]
-
-# --- Option B: optimize sigma+epsilon of ZN, SZ, NZ as types (type mode) ---
-# [nn.model]
-# LJ_type_param = [
-#     ["ZN",  2.00e-01, 0.100, "on_eps", "on_sigma"],
-#     ["SZ",  3.10e-01, 0.250, "on_eps", "on_sigma"],
-#     ["NZ",  3.20e-01, 0.350, "on_eps", "on_sigma"],
-#     ["CT",  3.40e-01, 0.457],
-#     ["N",   3.25e-01, 0.711],
-#     ["O",   2.96e-01, 0.879],
-# ]
 ```
 
-### Integration Steps
+**What it computes, per epoch:**
 
-To actually use the `distance_distribution` loss:
+1. Build LJ tables from the current trainable parameters and run the simulator,
+   producing a trajectory of positions and boxes.
+2. For each pair type, compute all minimum-image distances between the two type
+   groups across **all** frames (properly wrapped for periodic boxes) and
+   concatenate them.
+3. Build one Gaussian KDE per pair type from the full set of distances
+   (trajectory-averaged, *not* per-frame) and evaluate it on the reference bin
+   centres `data_range`.
+4. Sum the KDEs across MPI ranks and normalize each to unit area.
+5. Average the per-pair error against the reference.
+6. Because the whole chain — LJ parameters -> forces -> positions -> distances
+   -> KDE -> error — is differentiable, `value_and_grad` updates σ/ε toward the
+   reference each epoch.
 
-1. Add the function to `src/diff_md/losses.py` (copy the template above).
-2. Add parsing logic in `nn_options.py` → `get_system_options()` to load
-   `pair_selections` (convert names to type indices) and `target_dist` / `data_range`
-   from `.npy` or `.xvg` files — similar to how `target_density` is loaded for
-   `density_and_apl`.
-3. Prepare reference data:
-   - `reference_dist.npy`: shape `(n_pairs, n_bins)` — e.g., from a GROMACS RDF
-     or from `gmx rdf` output converted to `.npy`.
-   - `dist_bins.npy`: shape `(n_bins,)` — bin centers in nm.
-4. Run: `diff_md optimize -f input.h5 -p topol.toml -c options.toml -m training.toml`
+> **Why the trajectory-wide KDE matters:** building a KDE from the handful of
+> distances in a *single* frame (e.g. one Zn atom) is essentially noise.
+> Collecting all distances first yields a well-sampled, physically meaningful
+> distribution — the trajectory-averaged distance distribution, not the average
+> of per-frame distributions.
+
+### Mean distance loss
+
+`coordination_distance` is the cheaper mean-distance variant: instead of a full
+distribution it matches the **mean** metal–ligand distance(s) to
+`target_distances`. Useful when you only have reference mean coordination
+distances. Optional `data_range` / `target_dist` can be supplied purely to emit
+a diagnostic KDE in the output.
+
+```toml
+[nn.loss]
+name = "coordination_distance"
+metric = "mse"
+
+[nn.system_args."zn_system"]
+coord_pairs = [["SZ", "ZN"], ["NZ", "ZN"]]
+target_distances = [0.23, 0.21]    # nm, one per pair
+```
+
+### Tetrahedral order losses
+
+`coordination_tetrahedral` and `coordination_tetrahedral_dist` extend
+coordination matching to the **tetrahedral order parameter *q*** of a metal site
+together with its ligand distances, defined per site (a metal plus its ligand
+groups). Use these when the *geometry* of the coordination shell — not just the
+distances — must match the reference. The per-site topology (metal index, ligand
+indices, group labels) is given in `[nn.system_args]`; see
+`src/diff_md/losses.py` for the exact per-site arguments.
+
+### Writing your own loss
+
+All losses live in `src/diff_md/losses.py` and share one signature:
+
+```python
+def my_loss(model, system, key, start_temperature, comm,  # always provided by optimize.py
+            arg_from_system_args,                          # from [nn.system_args.<name>]
+            arg_from_loss):                                # from [nn.loss]
+    ...
+    return error, (output_dict, trj, key, config, types)
+```
+
+To add one: implement the function, add its argument parsing in `nn_options.py`
+(convert type names to indices, load `.xvg` / `.npy` references), then select it
+with `[nn.loss] name = "my_loss"`.
 
 ---
 
-## GPU Acceleration for `diff_md optimize`
+## Useful Training Options
 
-JAX automatically uses a GPU if one is available and `jaxlib[cuda]` is installed.
-No code changes are required to move from CPU to GPU — all `jnp` operations, `lax.scan`,
-`vmap`, and FFTs dispatch to the GPU transparently.
+A few `training.toml` knobs that matter in practice:
 
-However, several patterns in the current codebase limit GPU throughput. The table below
-ranks them by impact.
+| Option | Section | Effect |
+|--------|---------|--------|
+| `n_epochs` | `[nn]` | Number of optimization epochs |
+| `equilibration` | `[nn]` | Equilibration steps run before each scored trajectory |
+| `teacher_forcing` | `[nn]` | Reuse the previous epoch's final state as the next start (vs. re-equilibrating) |
+| `train_sigma` | `[nn]` | In type mode with no explicit flags, also train σ (default `false`) |
+| `grad_method` | `[nn.loss]` | Gradient method: `"reverse"` (reverse-mode AD, default), `"jvp"` (forward-mode, lower memory for long runs), or `"finite_diff"` |
+| `clear_xla_cache` | `[nn.loss]` | Clear the XLA compilation cache every N epochs (`0` = never); bounds memory on long runs |
+| `clip_sigma_min` / `clip_sigma_max` | `[nn]` | Hard bounds on σ (nm) — see [Constraints and Boundaries](#constraints-and-boundaries) |
+| `clip_epsilon_min` / `clip_epsilon_max` | `[nn]` | Hard bounds on ε (kJ/mol) |
 
-### Bottleneck Summary
+The neighbor-list capacity is a runtime option set in `options.toml`:
 
-| Priority | Issue | Where | Impact |
-|----------|-------|-------|--------|
-| **P0** | Python for-loop over trajectory frames in loss functions | `losses.py` | Each frame is a separate kernel launch; no fusion |
-| **P0** | Trajectory accumulated via Python list `.append()` | `simulate.py` | Host–device transfer after each `lax.scan` chunk |
-| **P0** | No gradient checkpointing on PME reciprocal pass | `nonbonded.py` | Memory blowup for large systems during backprop |
-| **P1** | `step()` not JIT-compiled as a whole | `optimize.py` | `value_and_grad` + optimizer update + projection all separate |
-| **P2** | Initial neighbor list built with NumPy on CPU | `neighbor_list.py` | One-time cost at simulation start |
-
-### Detailed Recommendations
-
-#### 1. Vectorize loss frame loops (`losses.py`) — HIGH IMPACT
-
-Current pattern (e.g., `density_and_apl`):
-```python
-for pos, box in zip(trj["positions"], trj["box"]):
-    kde_density = lateral_density_kde(kde_density, ...)
+```toml
+nlist_capacity_multiplier = 1.25   # raise to 1.5 if you see neighbor-list overflow warnings
 ```
 
-This launches a separate GPU kernel per frame. Replace with `vmap` + `jnp.sum`:
-```python
-def _frame_density(pos, box):
-    com = _compute_com(pos[fixed_sel, 2], box[2])
-    centered = _center(pos[:, 2], com, box[2])
-    return lateral_density_kde(jnp.zeros(...), centered, ...)
-
-kde_all = jax.vmap(_frame_density)(
-    jnp.stack(trj["positions"]), jnp.stack(trj["box"])
-)
-kde_density = jnp.sum(kde_all, axis=0)
-```
-
-This fuses all frames into one batched kernel — typically **5–20× faster on GPU**.
-The same applies to `radius_of_gyration` and all its variants.
-
-#### 2. Pre-allocate trajectory arrays (`simulate.py`) — HIGH IMPACT
-
-Currently, `trj["positions"].append(pos)` inside the scan loop triggers a
-device-to-host transfer at each print step. Instead:
-
-```python
-# Pre-allocate on GPU
-n_frames = n_steps // n_print + 1
-trj_pos = jnp.zeros((n_frames, n_atoms, 3))
-trj_box = jnp.zeros((n_frames, 3))
-
-# Inside lax.scan, write frames at computed indices
-trj_pos = trj_pos.at[frame_idx].set(positions)
-```
-
-This keeps all trajectory data on GPU until the scan completes, avoiding
-O(n_frames) host–device round trips.
-
-#### 3. Gradient checkpointing on PME (`nonbonded.py`) — ✅ IMPLEMENTED
-
-The reciprocal-space energy computation stores the full mesh + FFT intermediates
-for backprop. For >10k atoms this can exhaust GPU memory.  Now wrapped with
-`@jax.checkpoint` on `_recip_energy` and `_dip_recip_energy` (both in
-`nonbonded.py`), plus `jax.checkpoint(_md_step)` on the `lax.scan` body in
-`simulate.py`.  The diagnostic potential-field forward pass is also skipped
-during training (`compute_potential=False`) since no loss function uses it.
-
-This trades ~2× recomputation for O(1) memory on the backward pass.
-
-**Speed vs memory trade-off:**  The `jax.checkpoint` on `_md_step` recomputes the
-entire step body during backprop (~2× compute cost).  The nested `@checkpoint` on
-`_recip_energy` inside the PME function adds one additional PME forward pass per
-step.  To maximise speed at the expense of more GPU memory, remove the outer
-checkpoint:
-
-```python
-# In simulate.py, replace:
-_md_step_ckpt = jax.checkpoint(_md_step)
-# With:
-_md_step_ckpt = _md_step
-```
-
-#### 4. JIT the full optimization step (`optimize.py`)
-
-The `step()` closure calls `value_and_grad`, optax update, and projection
-in separate Python calls. Wrapping the whole thing in `@jax.jit`:
-
-```python
-@jax.jit
-def jit_step(params, opt_state, key):
-    (loss, aux), grads = jax.value_and_grad(loss_fn, has_aux=True)(params, ...)
-    updates, new_state = optimizer.update(grads, opt_state, params)
-    new_params = optax.apply_updates(params, updates)
-    new_params = optax.projections.projection_box(new_params, lower, upper)
-    return new_params, new_state, loss, aux
-```
-
-This compiles the entire forward+backward+update into a single XLA graph,
-eliminating host round trips between sub-operations. First call is slow
-(compilation), subsequent calls are fast.
-
-#### 5. Multi-GPU via `jax.pmap` (future)
-
-The current MPI-based parallelism (`mpi4jax`) works across nodes but doesn't
-exploit multiple GPUs on the same node natively. For single-node multi-GPU:
-
-```python
-# Replace mpi4jax.allreduce with:
-grads = jax.lax.pmean(grads, axis_name="devices")
-# And wrap step() with pmap:
-pmap_step = jax.pmap(jit_step, axis_name="devices")
-```
-
-This is a larger refactor but enables efficient multi-GPU gradient averaging
-without MPI overhead on a single node.
-
-
-#COMANDO x LANCIARE su olivia
-
-srun -n 4 --gpus-per-task=1
-
-
-#INFO Nuova Loss x ZINCO
-
-What it does, step by step
-Goal: At each epoch, run an MD trajectory, measure how far each SZ/NZ/SD atom is from each Zn atom, build a distance distribution for each pair type, and compare it to your QM/MM reference.
-
-1. Run the simulation
-Same as every other loss — build LJ tables from the current trainable parameters, run the simulator, get back a trajectory (trj) with positions+boxes for every saved frame.
-
-2. Collect distances
-For every frame of the trajectory and for each pair type (SZ-Zn, NZ-Zn, SD-Zn):
-
-The helper _pairwise_distances_pbc takes all SZ atoms and all Zn atoms, computes all Na × Nb minimum-image distances (properly wrapped for periodic boxes), and returns them as a flat array.
-These distances are appended to a list.
-After looping over all frames, all distances for pair p are concatenated into one big 1-D array. For example, if you have 2 SZ atoms, 1 Zn atom, and 50 frames → 2×1×50 = 100 distance values for the SZ-Zn pair.
-
-3. Build a KDE distribution
-For each pair type, a Gaussian KDE (kernel density estimate) is built from all those concatenated distances. This gives a smooth probability distribution curve — essentially a histogram smoothed by Gaussians — evaluated on the same bin centres as your reference XVG (data_range).
-
-This is the key: one KDE per pair type, built from the entire trajectory of this epoch (not per-frame).
-
-4. Average across MPI ranks
-Each MPI rank ran its own independent trajectory (different PRNG seed). The KDEs are summed via allreduce and divided by the number of ranks → you get a rank-averaged distribution.
-
-5. Compute the error
-For each pair type, compare the simulated KDE to the corresponding column from your QM/MM reference XVG using the chosen metric (MSE). Sum the per-pair errors and divide by the number of pairs (3 in your case) so the loss scale doesn't depend on how many pairs you define.
-
-6. Gradients flow back
-Because everything is JAX — the LJ parameters → forces → positions → distances → KDE → error is a differentiable chain. value_and_grad gives you the gradient of this error with respect to your trainable LJ σ and ε. The optimizer updates them, and next epoch the MD runs with slightly different LJ parameters, hopefully producing distributions closer to the QM/MM reference.
-
-What was fixed
-The initial version had a subtle but important bug: it built a KDE per frame (from just a handful of distances, e.g. 2 for a single Zn) and averaged those KDEs. With so few data points per frame the KDE is essentially noise — a few spikes rather than a smooth distribution. By contrast, the fix collects all distances across all frames first, then builds one well-sampled KDE from the full trajectory. This is physically correct: you want the trajectory-averaged distance distribution, not the average of per-frame distributions.
-
-The simpler coordination_distance loss (mean-distance variant) had a normalisation order bug: it divided by n_frames before the MPI allreduce, which gives a wrong result. Now it does a single / (comm_size * n_frames) after allreduce — consistent with every other loss in the codebase.
-
-In summary
-Each epoch:
-Your LJ params → MD trajectory → for each of {SZ-Zn, NZ-Zn, SD-Zn}: collect all pairwise distances → build one smooth distribution (KDE) → compare to QM/MM reference → gradient → update LJ params.
-
-
-
-TEMPLATE:
-[nn]
-# Hard clipping bounds only for range definition
-clip_sigma_min = 0.05
-clip_sigma_max = 2.0
-clip_epsilon_min = 0.001
-clip_epsilon_max = 100.0
-
-[nn.loss]
-# Soft boundaries (loss penalties) to dug the Loss f. optimization away from these "bad" values
-upper_boundary = 50.0
-lower_boundary = 0.05
-boundary_S = 2
-boundary_C = 500
-constraint = "harmonic"
-k_constraint = 0.01
-
-# Added cache cleaning!!! sotto grad_method, ogni quante epoche fare pulito
-clear_xla_cache = 0        (prend interi 1 5 10 ogni quante epoche!!!)
-
-
-
-TOML new option options.toml
-nlist_capacity_multiplier = 1.25   # default now; increase to 1.5 if overflow persists
