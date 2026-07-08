@@ -1,5 +1,5 @@
 ###SLURM X OLIVIA HPC (Norway )###
-
+#!/bin/sh
 #SBATCH  --job-name=MyJob
 #SBATCH  --time=0-21:00:00
 #SBATCH  --partition=accel
@@ -25,7 +25,6 @@ module list
 export PATH="/cluster/PATH_TO/diff_amd_gpu/bin:$PATH"
 
 
-# 2. THE MAGIC FIXES (Network & Security)
 # Silence the Munge/Security alerts that kill the job
 export OMPI_MCA_psec=^munge
 export PMIX_MCA_psec=native
@@ -37,13 +36,10 @@ export NCCL_IB_DISABLE=1
 export OMPI_MCA_pml=ob1
 export OMPI_MCA_btl=tcp,self,vader
 
-# Optional: Print NCCL logs to your .out file so we can see the 3 nodes talking
+# Optional: Print NCCL logs to your .out file so it is possible to see the 3 nodes talking
 export NCCL_DEBUG=INFO
 
-# Move to the directory where you launched the sbatch command
 cd $SLURM_SUBMIT_DIR
-
-# Print it just to be sure
 echo "Currently working in: $(pwd) su Olivia HPC, top"
 
 
