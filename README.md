@@ -39,6 +39,9 @@ pip install .
 > module purge
 > module load NRIS/GPU
 > module load hpc-container-wrapper
+> module load GCCcore/12.3.0
+> module load OpenMPI/4.1.5-GCC-12.3.0
+> module unload  CUDA/12.1.1  #it has to be unloaded to let JAX build its own CUDA libraries
 > The Compilation MUST be launched on computing node!!! (GPU) NOT on the login one (different architecture and no GPU), USE salloc for interactive job!
 > salloc --ntasks=1 --threads-per-core=1 --cpus-per-task=128 --gpus=1 --time=01:00:00 --account=??? --partition=accel --mem 96G
 > #CREATE Container for OLIVIA
