@@ -1,7 +1,0 @@
-[system]
-molecules = [
-    ["SOL", 512],
-]
-include = [
-    "./SOL.toml",
-]

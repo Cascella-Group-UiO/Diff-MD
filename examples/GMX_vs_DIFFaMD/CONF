@@ -1,3 +1,0 @@
-cutoff=0.9 -> LJ=-0.99583411, Coul_pair=-1136.03910792, dLJ_vs_diff=-1.20334610e-05, dCoul_vs_diff=-130.13383448
-cutoff=1.0 -> LJ=-1.03688976, Coul_pair=-1136.03910792, dLJ_vs_diff=-4.10676870e-02, dCoul_vs_diff=-130.13383448
-diffmd frame0 -> LJ=-0.99582207, Elec=-1005.90527344

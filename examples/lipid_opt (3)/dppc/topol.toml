@@ -1,9 +1,0 @@
-[system]
-molecules = [
-    ["DPPC", 64],
-    ["W", 516],
-]
-include = [
-    "./DPPC.toml",
-    "./W.toml",
-]

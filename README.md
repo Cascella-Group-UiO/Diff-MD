@@ -1,9 +1,9 @@
 # Diff-aMD
-∂-aMD (read diff-aMD) is built on top of [∂-HyMD](https://github.com/Cascella-Group-UiO/Diff-HyMD).
+∂-HyMD (read diff-HyMD) is built on top of [∂-HyMD_hHPF](https://github.com/Cascella-Group-UiO/).
 The main goal is to automatically learn force field parameters while running differentiable molecular dynamics simulations.
 Instead of using the hybrid particle-field Hamiltonian, this version uses regular force field functions.
 
-To read more about ∂-HyMD check the paper [here](https://pubs.acs.org/doi/10.1021/acs.jcim.4c00564).
+#To read more about ∂-HyMD check the paper [here](https://pubs.acs.org/doi/10.1021/acs.jcim.4c00564).
 
 For force-field **training** (which LJ parameters to optimize, loss functions,
 constraints) see [`TRAIN.md`](TRAIN.md); for the optimization internals
@@ -28,7 +28,6 @@ constraints) see [`TRAIN.md`](TRAIN.md); for the optimization internals
 - [Whole-molecule unwrapping for visualisation output](#whole-molecule-unwrapping-for-visualisation-output)
 - [Optimization call graph](#optimization-call-graph)
 - [Available loss functions](#available-loss-functions)
-- [AMBER ff19SB / CMAP Support](#amber-ff19sb--cmap-support)
 - [Recent Changes](#recent-changes)
 
 ## Installation
@@ -1939,28 +1938,9 @@ per-type group ordering printed at startup.  Example for 2 all-SD sites:
 | `boundary_S` | `2` | Sigmoid steepness for boundary penalty |
 | `boundary_C` | `500` | Sigmoid amplitude for boundary penalty |
 
-## AMBER ff19SB / CMAP Support
+---
 
-Diff-MD has a third valid `ff_family` value, `"amber19sb"`, which extends
-`amber_like` with the GROMACS-style CMAP backbone correction used by ff19SB,
-ff14SB, and other modern AMBER protein force fields.  CMAP is a periodic 2D
-energy grid `E(φ, ψ)` evaluated for each backbone (Cα + neighbours) — small
-in absolute magnitude but essential for correct φ/ψ landscape and secondary
-structure preferences.
-
-### Quick start (production MD)
-
-1. Convert your AMBER topology and coordinates with `gmx2HyMD` using the
-   new `--amber19sb` flag.  The flag tells gmx2HyMD to:
-   - parse `cmap.itp` from the FF directory,
-   - emit per-residue CMAP entries into each `Protein_chain_*.toml`
-     (one entry per backbone with neighbours, indexed
-     `[c_prev, n_curr, ca_curr, c_curr, n_next, "RESNAME"]`),
-   - append a global `[cmap]` table to `options.toml` carrying the raw
-     24×24 grids (one per residue type),
-   - rewrite `ff_family = "amber_like"` → `ff_family = "amber19sb"` in
-     the emitted `options.toml`.
-
+###Converting .itp and .top GROMACS structures 
 ```bash
 # From a directory that contains the .gro/.pdb, .top, and amber19sb.ff/
 python -m gmx2HyMD \
@@ -1968,8 +1948,6 @@ python -m gmx2HyMD \
     -p topol.top \
     -oc output.h5 \
     -op topol.toml \
-    --amber19sb                            # auto-discovers ./amber19sb.ff/
-    # --ff-dir /path/to/amber19sb.ff       # override if FF lives elsewhere
 ```
 
 2. Run `mdrun` or `optimize` exactly as usual; the CMAP energy is folded
@@ -1984,77 +1962,10 @@ diff_md mdrun -i input.h5 -m options.toml -p topol.toml -d run_out
 
 ```toml
 [atomistic_ff]
-ff_family = "amber19sb"
+ff_family = "amber-like"
 combining_rule = "lorentz-berthelot"
 ...
 
-[cmap]
-grid_size = 24
-
-[cmap.grids]
-ALA = [
-    [-1.69410160, -3.83099592, ...],
-    ...
-]
-GLY = [...]
-PRO = [...]
-# 29 residues total
-```
-
-and each `Protein_chain_*.toml` now has a `cmap` field alongside
-`dihedrals` and `impropers`:
-
-```toml
-cmap = [
-    [18, 20, 22, 40, 42, "LYS"],   # 1-indexed atom IDs: c_prev, n, ca, c, n_next + residue
-    [40, 42, 44, 62, 64, "LYS"],
-    ...
-]
-```
-
-### How the math works
-
-The runtime kernel lives in `src/diff_md/cmap.py`.  Per residue type, a 24×24
-energy grid is converted at load time into per-cell bicubic-Hermite
-coefficients (`build_bicubic_coefs`, shape `(24, 24, 4, 4)`).  At each MD step
-the kernel:
-
-1. Computes φ from atoms (1, 2, 3, 4) and ψ from atoms (2, 3, 4, 5) using
-   the existing `get_dihedral_angle`.
-2. Maps `(φ, ψ) ∈ [-π, π]` into grid index space `[0, 24)` via
-   `jnp.mod((angle + π) * G/(2π), G)`, which gives clean ±π wraparound
-   without a Python branch.
-3. Gathers the 4×4 polynomial coefficients for that cell and evaluates
-   `E = dx_powers @ C @ dy_powers`.
-4. Forces fall out of `vmap(value_and_grad(_cmap_energy_single, (0, 1, 2, 3, 4)))`.
-
-The grids ride on `Config.cmap_grid_bank` as static metadata (a hashable
-wrapper around the raw numpy arrays); the precomputed bicubic coefficients
-ride on `Topology.cmap_coefs` as a JAX leaf so the gather is jit-friendly.
-
-### Verification
-
-```bash
-diff-aMD_test/bin/python -m pytest tests/test_cmap.py -v
-```
-
-Covers: bicubic exact-at-corners, periodic continuity at the φ/ψ wrap,
-constant-grid sanity, autograd-vs-finite-difference forces (rel < 5e-3 in
-float32), JIT cache stability, hashable grid bank, raw `cmap.itp` parsing
-on the `cmap_amber19/amber19sb.ff/` reference force field, and round-trip through
-the gmx2HyMD writer.
-
-A bit-exact comparison against `gmx mdrun -rerun + gmx energy` is deferred
-behind a one-shot reference-generation script (`tools/gen_cmap_reference.py`)
-since the math is the textbook bicubic Hermite spline; agreement is expected
-to ~1e-4 kJ/mol absolute on the same conformation.
-
-### When NOT to use `amber19sb`
-
-- Coarse-grained Martini systems — leave `ff_family = "martini"`.
-- AMBER training runs that don't need the CMAP correction — set
-  `ff_family = "amber_like"`; the CMAP code path is disabled and there is
-  no overhead.
 
 ### Optimizer warning (training only)
 

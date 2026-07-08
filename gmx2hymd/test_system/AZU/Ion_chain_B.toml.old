@@ -1,6 +1,0 @@
-[Ion_chain_B]
-atomnum = 1
-atoms = [
-    [1, "CU", 129, "CU", "CU", 1, 2.0, 63.55],
-]
-

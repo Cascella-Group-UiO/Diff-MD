@@ -19,3 +19,6 @@ env/
 .vscode/
 *.code-workspace
 .DS_Store
+
+#DIR
+README.md.amber19

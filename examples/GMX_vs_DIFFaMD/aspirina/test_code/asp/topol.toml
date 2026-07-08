@@ -1,7 +1,0 @@
-[system]
-molecules = [
-    ["LIG", 1],
-]
-include = [
-    "./LIG.toml",
-]
