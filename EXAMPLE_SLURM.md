@@ -1,0 +1,50 @@
+###SLURM X OLIVIA HPC (Norway )###
+
+#SBATCH  --job-name=MyJob
+#SBATCH  --time=0-21:00:00
+#SBATCH  --partition=accel
+#SBATCH  --nodes=8
+#SBATCH  --ntasks-per-node=4
+#SBATCH  --cpus-per-task=64
+#SBATCH  --mem-per-gpu 190G
+#SBATCH  --gpus-per-task=1
+#SBATCH  --gpus-per-node=4
+#SBATCH  --gpus=32
+
+
+module load NRIS/GPU
+module load hpc-container-wrapper
+module load GCCcore/12.3.0
+module load OpenMPI/4.1.5-GCC-12.3.0
+module unload CUDA/12.1.1
+module list
+
+#export PATH=$(echo $PATH | sed -e 's|/cluster/PATH_TO/diff_amd_gpu/bin:||g')
+#cd /cluster/PATH_TO/Diff-MD-regret_GPU/
+#conda-containerize update /cluster/PATH_TO/diff_amd_gpu --post-install install_gpu.sh
+export PATH="/cluster/PATH_TO/diff_amd_gpu/bin:$PATH"
+
+
+# 2. THE MAGIC FIXES (Network & Security)
+# Silence the Munge/Security alerts that kill the job
+export OMPI_MCA_psec=^munge
+export PMIX_MCA_psec=native
+export OMPI_MCA_mca_base_component_show_load_errors=0
+
+# Force the "Highway" (TCP) network instead of the "Bullet Train" (InfiniBand)
+# This prevents the container from crashing when it can't find host drivers.
+export NCCL_IB_DISABLE=1
+export OMPI_MCA_pml=ob1
+export OMPI_MCA_btl=tcp,self,vader
+
+# Optional: Print NCCL logs to your .out file so we can see the 3 nodes talking
+export NCCL_DEBUG=INFO
+
+# Move to the directory where you launched the sbatch command
+cd $SLURM_SUBMIT_DIR
+
+# Print it just to be sure
+echo "Currently working in: $(pwd) su Olivia HPC, top"
+
+
+srun --mpi=pmix -n 32 diff_md optimize -m training.toml -c options.toml -p topol.toml -f input.h5 -d TEST_9_200_120_wsr_10psEQ #--restart TEST_3/step_33/cpt --restart-state exact #--double-precision
