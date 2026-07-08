@@ -1,4 +1,4 @@
-# Gradient Methods in ∂-aMD
+# Gradient Methods in ∂-HyMD
 
 This document describes the gradient computation methods available in ∂-aMD
 for differentiable molecular dynamics parameter optimization.  It covers the
@@ -30,7 +30,7 @@ choosing between methods.
 
 ## Overview
 
-∂-aMD optimizes Lennard-Jones parameters (σ, ε) by differentiating a loss
+∂-HyMD optimizes Lennard-Jones parameters (σ, ε) by differentiating a loss
 function through a full molecular dynamics trajectory.  The gradient of the
 loss with respect to the trainable parameters can be computed in three ways:
 
