@@ -44,3 +44,40 @@ echo "Currently working in: $(pwd) su Olivia HPC, top"
 
 
 srun --mpi=pmix -n 32 diff_md optimize -m training.toml -c options.toml -p topol.toml -f input.h5 -d TEST_9_200_120_wsr_10psEQ #--restart TEST_3/step_33/cpt --restart-state exact #--double-precision
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+###SLURM X BETZY or SAGA HPC (Norway)###
+#!/usr/bin/bash
+#!!128 cores x node, min 4 nodes!!
+#SBATCH --account=???
+## Wall time limit:
+#SBATCH --time=0-10:00:00
+## Number of nodes:
+#SBATCH --nodes=8
+## Number of tasks to start on each node:
+#SBATCH --threads-per-core=1
+#SBATCH --ntasks-per-node=4
+#SBATCH --cpus-per-task=32
+#SBATCH --ntasks-per-socket=2
+#SBATCH --sockets-per-node=2
+
+module purge
+module load GCCcore/12.3.0
+module load OpenMPI/4.1.5-GCC-12.3.0
+module load  Python/3.11.3-GCCcore-12.3.0
+module unload CUDA/12.1.1  #if an HPC loads CUDA but the user wants to run diffMD on CPU I raccomend to unload CUDA module
+
+export OMP_NUM_THREADS=32
+export OMP_PLACES=cores
+export OMP_PROC_BIND=close
+export OMP_WAIT_POLICY=active
+
+export XLA_PYTHON_CLIENT_PREALLOCATE=false
+export JAX_PLATFORMS=cpu                 # Rimuove il warning GPU sharing
+export MALLOC_ARENA_MAX=4      # This is for Betzy, for SAGA remove
+export SLURM_MEM_PER_CORE=1952 # This is for Betzy, for SAGA remove
+
+
+source /cluster/PATH_TO/diff_md_test/bin/activate
+
+srun --cpu-bind=verbose -n 32 diff_md optimize -m training/training.toml -c options.toml -p topol.toml -f input.h5 -d dopc_test_out22S #--double-precision
