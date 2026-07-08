@@ -1,4 +1,4 @@
-# Diff-MD end-of-run quotes.  One entry per line: quote | author | date.
+# Diff-HyMD end-of-run quotes.  One entry per line: quote | author | date.
 # Lines starting with '#' and blank lines are ignored.
 # Delete this file (or rename it) to disable the end-of-run footer.
 
@@ -12,7 +12,7 @@ A checkpoint a day keeps the cluster sysadmin away. | Anonymous | 2026
 In silico, no one can hear your NaN. | Anonymous | 2026
 Energy is conserved; patience is not. | Anonymous | 2026
 The best optimizer is the one that does not blow up sigma. | Anonymous | 2026
-MPAM Merlo Portaci a M...| Friends(best)| Firenze_2014
+MPAM Merlo Portaci a M...| Friends(i_top)| Firenze_2014
 Everyone sees what you appear to be, few experience what you really are. | Niccolò Machiavelli | 1513
 The path to paradise begins in hell. | Dante Alighieri | c. 1308
 Simplicity is the ultimate sophistication. | Leonardo da Vinci | c. 1500

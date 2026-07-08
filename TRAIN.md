@@ -1,6 +1,6 @@
-# Diff-aMD Training Guide
+# Diff-HyMD Training Guide
 
-Diff-aMD (`diff_md optimize`) turns molecular-dynamics simulation into a
+Diff-HyMD (`diff_md optimize`) turns molecular-dynamics simulation into a
 *differentiable* function of the force-field parameters. It runs short MD
 trajectories inside an automatic-differentiation graph (JAX), computes a
 physical observable from each trajectory (e.g. a density profile, a
