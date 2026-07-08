@@ -32,6 +32,23 @@ pip install .
 pip install mpi4jax==0.9.0 --no-build-isolation
 pip install .
 
+
+
+> **Note**:
+> If installing on OLIVIA, it is necesssary to build a container fot the GPU version of the code (tested only with CUDA12)!
+> ```terminal
+> module purge
+> module load NRIS/GPU
+> module load hpc-container-wrapper
+> The Compilation MUST be launched on computing node!!! (GPU) NOT on the login one (different architecture and no GPU), USE salloc for interactive job!
+> salloc --ntasks=1 --threads-per-core=1 --cpus-per-task=128 --gpus=1 --time=01:00:00 --account=??? --partition=accel --mem 96G
+> #CREATE Container for OLIVIA
+> conda-containerize new --prefix ./diff_amd_gpu prova.yml --post-install install_gpu.sh
+> conda-containerize update ./diff_amd_gpu --post-install install_gpu.sh
+> export PATH="/PATHTO/diff_amd_gpu/bin:$PATH"
+> ```
+
+
 ```
 ## Example usage
 To run a simple MD simulation you can use
