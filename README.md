@@ -44,10 +44,13 @@ Clone the repo on your machine and create a virtual enviroment inside a director
 cd Diff-MD
 python -m venv --upgrade-deps <dir>
 ```
-Then you can simply install the package with
+Then you can simply install the package on HPC, cluster or local PC with
 ```terminal
 source <dir>/bin/activate
 pip install .
+pip install mpi4jax==0.9.0 --no-build-isolation
+pip install .
+
 ```
 ## Example usage
 To run a simple MD simulation you can use
