@@ -1,4 +1,9 @@
 # Diff-HyMD
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/d095f255-1150-4f1f-8bfa-27ccfd163d2d" alt="Project Logo" width="600" />
+  <br>
+  <p><i>© 2026 Matteo_Orlandi. All Rights Reserved.</i></p>
+</div>
 ∂-HyMD (read diff-HyMD) is built on top of [∂-HyMD_hHPF](https://github.com/Cascella-Group-UiO/).
 The main goal is to automatically learn force field parameters while running differentiable molecular dynamics simulations.
 Instead of using the hybrid particle-field Hamiltonian, this version uses regular force field functions.
@@ -62,6 +67,9 @@ To continue (append to) an existing trajectory:
 ```terminal
 diff_md mdrun -f dppc/simulation.h5 -p dppc/topol.toml -c dppc/options.toml -o dppc/simulation --append -v
 ```
+
+## Copyright & Licensing
+The source code in this repository is licensed under the LGPL-3.0 license. However, the project logo and associated branding are the exclusive copyright of [Ottica Radioradar SRL], © 2026. All rights reserved. The logo may not be downloaded, copied, or used for any purpose without explicit written permission.
 
 
 
