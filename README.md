@@ -31,8 +31,7 @@ source <dir>/bin/activate
 pip install .
 pip install mpi4jax==0.9.0 --no-build-isolation
 pip install .
-
-
+```
 
 > **Note**:
 > If installing on OLIVIA, it is necesssary to build a container fot the GPU version of the code (tested only with CUDA12)!
