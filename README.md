@@ -5,6 +5,7 @@ Instead of using the hybrid particle-field Hamiltonian, this version uses regula
 
 #To read more about ∂-HyMD check the paper [here](https://pubs.acs.org/doi/10.1021/acs.jcim.4c00564).
 
+Before using ∂-HyMD READ carefully read the [`MANUAL.md`](MANUAL.md).
 For force-field **training** (which LJ parameters to optimize, loss functions,
 constraints) see [`TRAIN.md`](TRAIN.md); for the optimization internals
 (gradient methods, checkpointing, restart) see [`OPTIMIZE.md`](OPTIMIZE.md).
