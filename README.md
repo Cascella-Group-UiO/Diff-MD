@@ -1,4 +1,4 @@
-# Diff-aMD
+# Diff-HyMD
 ∂-HyMD (read diff-HyMD) is built on top of [∂-HyMD_hHPF](https://github.com/Cascella-Group-UiO/).
 The main goal is to automatically learn force field parameters while running differentiable molecular dynamics simulations.
 Instead of using the hybrid particle-field Hamiltonian, this version uses regular force field functions.
