@@ -18,12 +18,12 @@ constraints) see [`TRAIN.md`](TRAIN.md); for the optimization internals
 
 ## Installation
 > **Note**:
-> If installing on Saga or Betzy you need to first load the `python` and `openmpi` modules
+> If installing on Saga or Betzy HPC cluster (Norway) you need to first load the `python` and `openmpi` modules
 > ```terminal
 > module load Python/3.11.3-GCCcore-12.3.0
 > module load OpenMPI/4.1.5-GCC-12.3.0
 > ```
-> and then proceed with the installation.
+> and then proceed with the installation, if you are running on a local PC then follow the instructions below.
 
 Clone the repo on your machine and create a virtual enviroment inside a directory `<dir>` of your choice
 ```terminal
@@ -39,7 +39,7 @@ pip install .
 ```
 
 > **Note**:
-> If installing on OLIVIA, it is necesssary to build a container fot the GPU version of the code (tested only with CUDA12)!
+> If installing on OLIVIA HPC (Norway), it is necesssary to build a container fot the GPU version of the code (tested only for CUDA12!)
 > ```terminal
 > module purge
 > module load NRIS/GPU
@@ -47,7 +47,7 @@ pip install .
 > module load GCCcore/12.3.0
 > module load OpenMPI/4.1.5-GCC-12.3.0
 > module unload  CUDA/12.1.1  #it has to be unloaded to let JAX build its own CUDA libraries
-> The Compilation MUST be launched on computing node!!! (GPU) NOT on the login one (different architecture and no GPU), USE salloc for interactive job!
+> #The Compilation MUST be launched on computing node!!! (GPU) NOT on the login one (different architecture and no GPU), USE salloc for interactive job!
 > salloc --ntasks=1 --threads-per-core=1 --cpus-per-task=128 --gpus=1 --time=01:00:00 --account=??? --partition=accel --mem 96G
 > #CREATE Container for OLIVIA
 > conda-containerize new --prefix ./diff_amd_gpu prova.yml --post-install install_gpu.sh
@@ -56,17 +56,16 @@ pip install .
 > ```
 
 
-```
-## Example usage
+## Example usage of the code
 To run a simple MD simulation you can use
-```terminal
-cd examples
-diff_md mdrun -f dppc/input.h5 -p dppc/topol.toml -c dppc/options.toml -o dppc/simulation -v
-```
+> ```terminal
+> cd examples
+> diff_md mdrun -f dppc/input.h5 -p dppc/topol.toml -c dppc/options.toml -o dppc/simulation -v
+> ```
 To continue (append to) an existing trajectory:
-```terminal
-diff_md mdrun -f dppc/simulation.h5 -p dppc/topol.toml -c dppc/options.toml -o dppc/simulation --append -v
-```
+> ```terminal
+> diff_md mdrun -f dppc/simulation.h5 -p dppc/topol.toml -c dppc/options.toml -o dppc/simulation --append -v
+> ```
 
 ## Copyright & Licensing
 The source code in this repository is licensed under the LGPL-3.0 license. However, the project logo and associated branding are the exclusive copyright of [Ottica Radioradar SRL], © 2026. All rights reserved. The logo may not be downloaded, copied, or used for any purpose without explicit written permission.
